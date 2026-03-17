@@ -1,0 +1,7 @@
+{
+  "name": "Play Me",
+  "description": "A premium music player with intelligent playlists, mood-based discovery, and seamless audio-to-video switching.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
