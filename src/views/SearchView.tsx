@@ -86,9 +86,23 @@ export function SearchView({
                 <div className="flex items-center gap-3 min-w-0">
                   <img src={track.coverUrl} alt={track.title} className="w-10 h-10 rounded object-cover shadow flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="font-medium text-sm truncate" style={{ color: isActive ? '#10b981' : 'var(--text-primary)' }}>
-                      {track.title}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-sm truncate" style={{ color: isActive ? '#10b981' : 'var(--text-primary)' }}>
+                        {track.title}
+                      </p>
+                      {track.source && (
+                        <span 
+                          className="text-[8px] px-1 rounded uppercase font-bold tracking-tighter"
+                          style={{ 
+                            background: track.source === 'spotify' ? '#1db95420' : track.source === 'youtube' ? '#ff000020' : '#ffffff10',
+                            color: track.source === 'spotify' ? '#1db954' : track.source === 'youtube' ? '#ff0000' : '#ffffff',
+                            border: `0.5px solid ${track.source === 'spotify' ? '#1db95430' : track.source === 'youtube' ? '#ff000030' : '#ffffff20'}`
+                          }}
+                        >
+                          {track.source}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>{track.artist}</p>
                   </div>
                 </div>

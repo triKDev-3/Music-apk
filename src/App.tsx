@@ -284,9 +284,29 @@ export default function App() {
     // Sauvegarder dans l'historique pour les recommandations futures
     trackSearchHistory(searchQuery);
     try {
-      const ytResults = await searchYouTube(searchQuery);
-      if (ytResults.length > 0) {
-        setSearchResults(ytResults);
+      const { searchSpotify } = await import('./services/spotifyService');
+      
+      // Recherche parallèle sur Spotify et YouTube
+      const [spotifyResults, ytResults] = await Promise.all([
+        searchSpotify(searchQuery).catch(() => []),
+        searchYouTube(searchQuery).catch(() => [])
+      ]);
+
+      let combined = [...spotifyResults];
+      
+      // On ajoute les résultats YouTube qui ne sont pas déjà (plus ou moins) présents par Spotify
+      // Ou plus simplement, on les combine et on laisse l'utilisateur choisir.
+      // Priorité à Spotify pour la qualité des métadonnées.
+      ytResults.forEach(yt => {
+        const alreadyFound = spotifyResults.some(s => 
+          s.title.toLowerCase().includes(yt.title.toLowerCase()) || 
+          yt.title.toLowerCase().includes(s.title.toLowerCase())
+        );
+        if (!alreadyFound) combined.push(yt);
+      });
+
+      if (combined.length > 0) {
+        setSearchResults(combined);
       } else {
         const geminiResults = await searchMusic(searchQuery);
         setSearchResults(geminiResults);

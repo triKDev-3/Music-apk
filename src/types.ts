@@ -6,6 +6,7 @@ export interface Track {
   coverUrl: string;
   duration: number;
   youtubeId: string;
+  source?: 'spotify' | 'youtube' | 'local';
   mood?: 'chill' | 'motivation' | 'love' | 'workout';
 }
 

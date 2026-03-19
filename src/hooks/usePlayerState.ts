@@ -172,6 +172,28 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
     }
 
     console.log('[Player] Playing:', track.title, '| ID:', track.youtubeId);
+    
+    // ── Bridge Spotify → YouTube (si youtubeId manquant) ─────────────────────
+    if (track.id.startsWith('spotify-') && !track.youtubeId) {
+      const bridge = async () => {
+        setIsLoading(true);
+        const { getYouTubeIdForSpotifyTrack } = await import('../services/spotifyService');
+        const vid = await getYouTubeIdForSpotifyTrack(track);
+        if (vid) {
+          track.youtubeId = vid; // Enrichir l'objet Track localement
+          setCurrentTrack({ ...track, youtubeId: vid });
+          setIsPlaying(true);
+          console.log('[Bridge] Titre Spotify bridgé avec succès.');
+        } else {
+          console.error('[Bridge] Aucun ID YouTube pour ce titre Spotify.');
+          setIsPlaying(false);
+          setIsLoading(false);
+        }
+      };
+      bridge();
+      return; 
+    }
+
     setCurrentTrack(track);
     setIsPlaying(true);
     setDuration(track.duration || 0);

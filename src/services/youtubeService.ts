@@ -107,6 +107,7 @@ export async function searchYouTube(query: string): Promise<Track[]> {
           item.snippet.thumbnails.default?.url,
         duration: durationMap[item.id.videoId] || 180,
         youtubeId: item.id.videoId,
+        source: 'youtube',
       }));
   } catch (err) {
     console.error('[YouTube] Search failed:', err);
