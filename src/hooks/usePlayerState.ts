@@ -108,12 +108,14 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   const trackQueueRef    = useRef(activeQueue);
   const repeatModeRef    = useRef(repeatMode);
   const isShuffleRef     = useRef(isShuffle);
+  const isClipModeRef    = useRef(isClipMode);
   useEffect(() => { currentTrackRef.current = currentTrack; }, [currentTrack]);
   useEffect(() => { trackQueueRef.current   = activeQueue;  }, [activeQueue]);
   useEffect(() => { repeatModeRef.current   = repeatMode;   }, [repeatMode]);
   useEffect(() => { isShuffleRef.current    = isShuffle;    }, [isShuffle]);
+  useEffect(() => { isClipModeRef.current   = isClipMode;   }, [isClipMode]);
 
-  // ── Local File Blob Handler ──────────────────────────────────────────────
+  // ── Stream URL Handler (Proxy YouTube & Fichiers Locaux) ───────────────
   useEffect(() => {
     let activeUrl: string | null = null;
     let isCancelled = false;
@@ -127,18 +129,22 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
           console.log('[Player] Local Blob URL created');
         }
       });
+    } else if (currentTrack?.youtubeId && !isClipMode) {
+      // Pour écoute audio fluide, on bypass YouTube via le proxy local Node.js
+      setLocalUrl(`http://localhost:4000/stream?id=${currentTrack.youtubeId}`);
     } else {
+      // En mode Clip, ReactPlayer gère le flux lui-même
       setLocalUrl(null);
     }
     
     return () => {
       isCancelled = true;
-      if (activeUrl) {
+      if (activeUrl && currentTrack?.youtubeId === 'local-blob') {
          URL.revokeObjectURL(activeUrl);
          console.log('[Player] Local Blob URL revoked');
       }
     };
-  }, [currentTrack?.youtubeId, currentTrack?.id]);
+  }, [currentTrack?.youtubeId, currentTrack?.id, isClipMode]);
 
   // playTrack avec gestion de file d'attente contextuelle
   const playTrack = useCallback((track: Track, customQueue?: Track[]) => {
@@ -153,9 +159,8 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
     }
 
     // Si on demande de jouer le même morceau, on force le redémarrage
-    // Si on demande de jouer le même morceau, on force le redémarrage
     if (currentTrackRef.current?.id === track.id) {
-      if (track.id.startsWith('local-') && audioRef.current) {
+      if (!isClipModeRef.current && audioRef.current) {
         audioRef.current.currentTime = 0;
         audioRef.current.play().catch(() => {});
       } else if (reactPlayerRef.current && typeof reactPlayerRef.current.seekTo === 'function') {
@@ -191,7 +196,7 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
       } catch {}
     }
 
-    if (track.id.startsWith('local-') && audioRef.current) {
+    if (!isClipModeRef.current && audioRef.current) {
       audioRef.current.playbackRate = playbackRate;
     }
   }, [searchResults, activeQueue, playbackRate]);
@@ -228,7 +233,7 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   const handleEnded = useCallback(() => {
     const mode = repeatModeRef.current;
     if (mode === 'one') {
-      if (currentTrackRef.current?.id.startsWith('local-') && audioRef.current) {
+      if (!isClipModeRef.current && audioRef.current) {
         audioRef.current.currentTime = 0;
         audioRef.current.play().catch(() => {});
       } else if (reactPlayerRef.current) {
@@ -242,19 +247,27 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
     }
   }, [skipToNextImpl]);
 
-  // ── Audio local (fichiers importés) ───────────────────────────────────────
+  // ── Audio HTML5 (Fichiers importés & Proxy local Node.js) ───────────────
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio || !currentTrack?.id.startsWith('local-')) return;
+    
+    // Si nous n'utilisons pas la balise audio HTML5 (ex: mode vidéo ReactPlayer activé ou pas de flux backend)
+    if (!audio || !localUrl) {
+       if (audio && !audio.paused && !localUrl) audio.pause();
+       return;
+    }
 
     audio.volume = isMuted ? 0 : volume;
 
     const onCanPlay = () => setIsLoading(false);
     const onWaiting = () => setIsLoading(true);
     const onTimeUpdate = () => {
-      if (audio.duration > 0) {
-        setPlayed(audio.currentTime / audio.duration);
-        setDuration(audio.duration);
+      let d = audio.duration;
+      if (!d || !isFinite(d)) d = currentTrackRef.current?.duration || 0;
+      
+      if (d > 0) {
+        setPlayed(audio.currentTime / d);
+        setDuration(d);
         setIsLoading(false);
       }
     };
@@ -340,7 +353,7 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
 
   const handleSeekChange = useCallback((val: number) => {
     setPlayed(val);
-    if (audioRef.current && currentTrackRef.current?.id.startsWith('local-')) {
+    if (audioRef.current && !isClipModeRef.current) {
       audioRef.current.currentTime = val * audioRef.current.duration;
     } else if (reactPlayerRef.current) {
       // react-player uses seekTo(fraction)

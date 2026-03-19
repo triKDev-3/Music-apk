@@ -16,33 +16,34 @@ app.get('/stream', async (req, res) => {
     console.log(`[Stream yt-dlp] Requête pour la vidéo: ${videoId}`);
 
     try {
+        const ytdl = require('@distube/ytdl-core');
+        
         res.setHeader('Content-Type', 'audio/mpeg');
-        res.setHeader('Transfer-Encoding', 'chunked');
+        
+        console.log(`[Stream] Lancement ytdl-core pour ${videoId}`);
+        
+        const stream = ytdl(url, {
+            filter: 'audioonly',
+            quality: 'highestaudio',
+            highWaterMark: 1 << 25 // 32MB buffer
+        });
 
-        const audioStream = ytDlp.exec(url, {
-            output: '-',
-            format: 'bestaudio[ext=m4a]/bestaudio',
-            extractAudio: true,
-            audioFormat: 'mp3',
-        }, { stdio: ['ignore', 'pipe', 'ignore'] });
+        stream.pipe(res);
 
-        if (audioStream.stdout) {
-            audioStream.stdout.pipe(res);
-        }
-
-        audioStream.on('error', (err) => {
-            console.error(`[Erreur] Problème avec stream:`, err.message);
+        stream.on('error', (err) => {
+            console.error(`[ytdl-core error]`, err);
             if (!res.headersSent) res.status(500).send('Stream error');
             else res.end();
         });
 
         res.on('close', () => {
-            if (audioStream.kill) audioStream.kill();
+            console.log(`[Stream] Fermeture du flux pour ${videoId}`);
+            if (stream.destroy) stream.destroy();
         });
 
     } catch (error) {
         console.error(`[Erreur] Impossible de lire ${videoId}:`, error.message);
-        if (!res.headersSent) res.status(500).send('Erreur lors du traitement de la vidéo YouTube');
+        if (!res.headersSent) res.status(500).send('Erreur backend');
     }
 });
 
@@ -109,3 +110,6 @@ app.listen(PORT, () => {
     console.log(`\x1b[34m➜ Streaming (yt-dlp) : http://localhost:${PORT}/stream?id=VIDEO_ID\x1b[0m`);
     console.log(`\x1b[34m➜ Recherche (Scraping) : http://localhost:${PORT}/search?q=QUERY\x1b[0m\n`);
 });
+
+// Force event loop to stay open in case of early exit bugs
+setInterval(() => {}, 1000 * 60 * 60);

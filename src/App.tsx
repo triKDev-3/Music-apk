@@ -582,39 +582,10 @@ export default function App() {
                 border: '1px solid rgba(255,255,255,0.15)',
               }}
             >
-              <ReactPlayer
-                key={player.youtubeId}
-                ref={player.reactPlayerRef}
-                url={`https://www.youtube.com/watch?v=${player.youtubeId}`}
-                playing={player.isPlaying}
-                controls={false}
-                volume={player.isMuted ? 0 : player.volume}
-                muted={false}
-                playbackRate={player.playbackRate}
-                onProgress={player.handleTimeUpdate}
-                onDuration={player.handleDurationChange}
-                onEnded={player.handleEnded}
-                loop={player.repeatMode === 'one'}
-                progressInterval={500}
-                onReady={() => console.log('[PIP] Prêt')}
-                onStart={() => player.setIsLoading(false)}
-                onPlay={() => player.setIsLoading(false)}
-                onError={() => player.setIsLoading(false)}
-                onBuffer={() => player.setIsLoading(true)}
-                onBufferEnd={() => player.setIsLoading(false)}
-                config={{
-                  youtube: {
-                    playerVars: { 
-                      rel: 0, 
-                      showinfo: 0,
-                      autoplay: 1,
-                      origin: window.location.origin,
-                      enablejsapi: 1
-                    }
-                  }
-                }}
-                width="200px"
-                height="112px"
+              <img
+                src={player.currentTrack?.coverUrl || `https://i.ytimg.com/vi/${player.youtubeId}/hqdefault.jpg`}
+                alt="Miniplayer cover"
+                style={{ width: '200px', height: '112px', objectFit: 'cover' }}
               />
             </div>
             
