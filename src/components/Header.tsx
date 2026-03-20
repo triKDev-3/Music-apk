@@ -50,14 +50,18 @@ export function Header({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" size={16} style={{ color: 'var(--text-faint)' }} />
           <input
             type="text"
-            placeholder="Rechercher..."
-            className="outline-none rounded-full py-2 pl-9 pr-4 text-sm transition-all w-40 sm:w-52 md:w-80"
+            placeholder="Rechercher avec l'IA..."
+            className="outline-none rounded-full py-2 pl-9 pr-12 text-sm transition-all w-40 sm:w-52 md:w-80"
             style={{ background: 'var(--input-bg)', color: 'var(--text-primary)', border: '1px solid transparent' }}
-            onFocus={e => { e.target.style.background = 'var(--input-hover)'; e.target.style.borderColor = 'var(--border)'; }}
+            onFocus={e => { e.target.style.background = 'var(--input-hover)'; e.target.style.borderColor = 'var(--accent)'; }}
             onBlur={e => { e.target.style.background = 'var(--input-bg)'; e.target.style.borderColor = 'transparent'; }}
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center bg-violet-500/10 px-1.5 py-0.5 rounded-full border border-violet-500/20 group-focus-within:bg-violet-500/20 transition-colors">
+            <span className="text-[8px] font-black text-violet-400 mr-1 uppercase tracking-tighter">AI</span>
+            <RefreshCw size={10} className="text-violet-400 animate-pulse" />
+          </div>
         </form>
 
         <button

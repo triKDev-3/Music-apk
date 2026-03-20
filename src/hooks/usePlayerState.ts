@@ -25,6 +25,7 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   });
   const [isClipMode, setIsClipMode]     = useState(false);
   const [isLoading, setIsLoading]       = useState(false);
+  const [hasError, setHasError]         = useState(false);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [sleepTimer, setSleepTimer]     = useState<number | null>(null);
   const [favorites, setFavorites]       = useState<string[]>([]);
@@ -113,7 +114,13 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   useEffect(() => { trackQueueRef.current   = activeQueue;  }, [activeQueue]);
   useEffect(() => { repeatModeRef.current   = repeatMode;   }, [repeatMode]);
   useEffect(() => { isShuffleRef.current    = isShuffle;    }, [isShuffle]);
-  useEffect(() => { isClipModeRef.current   = isClipMode;   }, [isClipMode]);
+  useEffect(() => { 
+    isClipModeRef.current   = isClipMode;   
+    if (isClipMode && currentTrack?.youtubeId) {
+       setIsLoading(true);
+       setHasError(false);
+    }
+  }, [isClipMode, currentTrack?.youtubeId]);
 
   // ── Stream URL Handler (Proxy YouTube & Fichiers Locaux) ───────────────
   useEffect(() => {
@@ -130,10 +137,10 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
         }
       });
     } else if (currentTrack?.youtubeId && !isClipMode) {
-      // Pour écoute audio fluide, on bypass YouTube via le proxy local Node.js
-      setLocalUrl(`http://localhost:4000/stream?id=${currentTrack.youtubeId}`);
+      // Écoute audio pure via notre proxy redirect vers yt-dlp
+      setLocalUrl(`http://localhost:3001/api/stream?id=${currentTrack.youtubeId}`);
     } else {
-      // En mode Clip, ReactPlayer gère le flux lui-même
+      // Mode Clip Vidéo : on coupe l'audio local et on laisse ReactPlayer tout gérer
       setLocalUrl(null);
     }
     
@@ -199,6 +206,7 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
     setDuration(track.duration || 0);
     setPlayed(0);
     setIsLoading(true);
+    setHasError(false);
 
     setStats(prev => {
       const safe = prev || { totalTime: 0, playCount: {}, recentlyPlayed: [] };
@@ -404,6 +412,7 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
     isShuffle,    setIsShuffle,
     isClipMode,   setIsClipMode,
     isLoading,    setIsLoading,
+    hasError,     setHasError,
     playbackRate, setPlaybackRate,
     sleepTimer,   setSleepTimer,
     activeQueue,  setActiveQueue,

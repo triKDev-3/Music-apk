@@ -32,12 +32,12 @@ export function TrackCard({ track, onPlay, isActive = false }: TrackCardProps) {
       </div>
       <div className="space-y-1">
         <h4
-          className="font-black truncate text-sm tracking-tight"
+          className="font-black text-sm tracking-tight leading-snug line-clamp-2"
           style={{ color: isActive ? '#A78BFF' : 'var(--text-primary)' }}
         >
           {track.title}
         </h4>
-        <p className="text-[11px] font-bold text-white/40 uppercase tracking-widest truncate">
+        <p className="text-[11px] font-bold text-white/40 uppercase tracking-widest truncate mt-1">
           {track.artist}
         </p>
       </div>

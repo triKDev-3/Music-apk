@@ -81,6 +81,7 @@ export default function App() {
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
   const [isRecognitionOpen, setIsRecognitionOpen]   = useState(false);
   const [isPipActive, setIsPipActive]                 = useState(false);
+  const [videoFilters, setVideoFilters] = useState({ brightness: 1, saturation: 1 });
   const [dialog, setDialog] = useState<{
     isOpen: boolean, title: string, message: string, 
     type?: 'info' | 'error' | 'success' | 'confirm' | 'prompt',
@@ -132,6 +133,7 @@ export default function App() {
 
   const { user, loading: authLoading } = useAuth();
   const player = usePlayerState({ searchResults, user });
+
 
   // ── Chargement Initial (Firestore ou LocalStorage) ──────────────────────────
   useEffect(() => {
@@ -276,27 +278,19 @@ export default function App() {
   }, []);
 
   // ── Recherche ─────────────────────────────────────────────────────────────
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
+  const performSearch = async (query: string) => {
+    if (!query.trim()) return;
     setIsSearching(true);
     setCurrentView('search');
-    // Sauvegarder dans l'historique pour les recommandations futures
-    trackSearchHistory(searchQuery);
+    trackSearchHistory(query);
     try {
       const { searchSpotify } = await import('./services/spotifyService');
-      
-      // Recherche parallèle sur Spotify et YouTube
       const [spotifyResults, ytResults] = await Promise.all([
-        searchSpotify(searchQuery).catch(() => []),
-        searchYouTube(searchQuery).catch(() => [])
+        searchSpotify(query).catch(() => []),
+        searchYouTube(query).catch(() => [])
       ]);
 
       let combined = [...spotifyResults];
-      
-      // On ajoute les résultats YouTube qui ne sont pas déjà (plus ou moins) présents par Spotify
-      // Ou plus simplement, on les combine et on laisse l'utilisateur choisir.
-      // Priorité à Spotify pour la qualité des métadonnées.
       ytResults.forEach(yt => {
         const alreadyFound = spotifyResults.some(s => 
           s.title.toLowerCase().includes(yt.title.toLowerCase()) || 
@@ -308,15 +302,29 @@ export default function App() {
       if (combined.length > 0) {
         setSearchResults(combined);
       } else {
-        const geminiResults = await searchMusic(searchQuery);
+        const geminiResults = await searchMusic(query);
         setSearchResults(geminiResults);
       }
     } catch (err) {
-      console.error('Search failed', err);
+      console.error('[Search] Error:', err);
     } finally {
       setIsSearching(false);
     }
   };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    performSearch(searchQuery);
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('q');
+    if (q) {
+      setSearchQuery(q);
+      performSearch(q);
+    }
+  }, []);
 
   // ── Gestionnaire Importation Locale ─────────────────────────────────────────
   const processFiles = async (files: FileList | File[]) => {
@@ -616,13 +624,13 @@ export default function App() {
           </div>
         )}
 
-        {/* ── Lecteur YouTube en mode Clip (plein écran - garde l'iframe vidéo d'origine) ── */}
+        {/* ── Lecteur YouTube Unifié (Audio & Clip) ── */}
         <div
           className={clsx(
             'transition-all duration-700 ease-in-out overflow-hidden',
             player.isClipMode
               ? (isPipActive ? 'fixed bottom-[100px] right-[24px] w-[200px] h-[112px] z-[200] rounded-2xl shadow-2xl border border-white/10 cursor-pointer group/clippip' : 'absolute inset-0 z-[180] pointer-events-auto bg-black')
-              : 'hidden',
+              : 'fixed opacity-0 w-[400px] h-[300px] -bottom-[2000px] pointer-events-none', // Lecteur virtuel hors écran pour l'audio!
           )}
           onClick={isPipActive ? () => setIsPipActive(false) : undefined}
         >
@@ -637,8 +645,8 @@ export default function App() {
         {player.youtubeId && hasStarted && player.isClipMode && (
           <ReactPlayer
             key={`clip-${player.youtubeId}`}
-            ref={player.reactPlayerRef}
-            url={`https://www.youtube.com/watch?v=${player.youtubeId}`}
+            ref={player.reactPlayerRef as any}
+            {...{url: `https://www.youtube.com/watch?v=${player.youtubeId}`} as any}
             playing={player.isPlaying}
             controls={true}
             volume={player.isMuted ? 0 : player.volume}
@@ -651,12 +659,8 @@ export default function App() {
             progressInterval={500}
             config={{
               youtube: {
-                playerVars: {
-                  rel: 0,
-                  showinfo: 0,
-                  autoplay: 1,
-                  origin: window.location.origin
-                }
+                rel: 0,
+                origin: window.location.origin
               }
             }}
             onReady={() => console.log('[ReactPlayer] Ready:', player.youtubeId)}
@@ -671,6 +675,7 @@ export default function App() {
             onError={(e) => {
               console.error('[ReactPlayer] Error for ID:', player.youtubeId, e);
               player.setIsLoading(false);
+              player.setHasError(true);
             }}
             onBuffer={() => player.setIsLoading(true)}
             onBufferEnd={() => player.setIsLoading(false)}
@@ -684,6 +689,7 @@ export default function App() {
               zIndex: 1,
               pointerEvents: 'auto',
               opacity: 1,
+              filter: `brightness(${videoFilters.brightness}) saturate(${videoFilters.saturation})`
             }}
           />
         )}
@@ -715,6 +721,10 @@ export default function App() {
                   playbackRate={player.playbackRate}
                   setPlaybackRate={player.setPlaybackRate}
                   isLoading={player.isLoading}
+                  hasError={player.hasError}
+                  brightness={videoFilters.brightness}
+                  saturation={videoFilters.saturation}
+                  onFiltersChange={(f) => setVideoFilters(prev => ({ ...prev, ...f }))}
                 />
               </motion.div>
             )}
@@ -776,6 +786,8 @@ export default function App() {
               setSleepTimer={player.setSleepTimer}
               activeQueue={player.activeQueue}
               playTrack={player.playTrack}
+              isLoading={player.isLoading}
+              hasError={player.hasError}
             />
           )}
         </AnimatePresence>

@@ -37,6 +37,8 @@ interface NowPlayingViewProps {
   activeQueue: Track[];
   playTrack: (t: Track, q?: Track[]) => void;
   onMinimize?: () => void;
+  isLoading?: boolean;
+  hasError?: boolean;
 }
 
 const MOCK_LYRICS = [
@@ -66,7 +68,8 @@ export function NowPlayingView({
   playlists, onAddToPlaylist,
   playbackRate, setPlaybackRate,
   sleepTimer, setSleepTimer,
-  activeQueue, playTrack, onMinimize
+  activeQueue, playTrack, onMinimize,
+  isLoading = false, hasError = false
 }: NowPlayingViewProps) {
   const [showQueue, setShowQueue]       = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -313,14 +316,39 @@ export function NowPlayingView({
                      <div className="absolute top-[180px] right-10 w-6 h-10 bg-zinc-800 rounded-sm border-2 border-zinc-600 shadow-md" style={{ transform: 'rotate(15deg)' }} />
                   </motion.div>
                   
-                  <motion.div 
+                   <motion.div 
                      animate={{ scale: isPlaying ? [1, 1.1, 1] : 1 }}
                      transition={{ repeat: Infinity, duration: 2 }}
                      className="absolute -bottom-6 -right-6 w-16 h-16 bg-violet-500 rounded-full flex items-center justify-center shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity z-40"
-                  >
+                   >
                      {isPlaying ? <Music2 size={32} color="black" /> : <Play size={32} fill="black" color="black" className="ml-1" />}
-                  </motion.div>
-                </motion.div>
+                   </motion.div>
+
+                  {/* Loading / Error Overlay on Cover */}
+                  <AnimatePresence>
+                    {(isLoading || hasError) && (
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center backdrop-blur-sm z-20"
+                      >
+                        {hasError ? (
+                           <div className="flex flex-col items-center justify-center p-4 bg-black/50 rounded-full border border-red-500/30">
+                             <MonitorPlay size={32} className="text-red-500 mb-2" />
+                             <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest text-center px-2">Lecture<br/>impossible</p>
+                           </div>
+                        ) : (
+                           <div className="flex flex-col items-center justify-center bg-black/30 rounded-full p-4">
+                             <Loader2 size={40} className="text-violet-500 animate-spin mb-2" />
+                             <p className="text-[10px] uppercase font-bold text-violet-400 tracking-widest animate-pulse">Chargement</p>
+                           </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+               </motion.div>
         </div>
 
         {/* Right Side: Title & Artist (Centered or Left depending on layout) */}

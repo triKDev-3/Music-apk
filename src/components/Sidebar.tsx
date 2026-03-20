@@ -38,7 +38,10 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-export function Sidebar({ currentView, setCurrentView, playlists, createPlaylist, onPlaylistClick, isOpen, onClose }: SidebarProps) {
+export function Sidebar({ 
+  currentView, setCurrentView, playlists, createPlaylist, 
+  onPlaylistClick, isOpen, onClose
+}: SidebarProps) {
   const navigate = (v: View) => { setCurrentView(v); onClose(); };
 
   return (

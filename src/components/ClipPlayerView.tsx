@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause, SkipBack, SkipForward, X, Maximize, Settings, Volume2, VolumeX, ChevronDown, ChevronLeft, Loader2, Tv } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, X, Maximize, Settings, Volume2, VolumeX, ChevronDown, ChevronLeft, Loader2, Tv, AlertTriangle } from 'lucide-react';
 import { Track } from '../types';
 
 interface ClipPlayerViewProps {
@@ -21,6 +21,10 @@ interface ClipPlayerViewProps {
   playbackRate: number;
   setPlaybackRate: (v: number) => void;
   isLoading?: boolean;
+  hasError?: boolean;
+  brightness: number;
+  saturation: number;
+  onFiltersChange: (f: Partial<{ brightness: number, saturation: number }>) => void;
 }
 
 export function ClipPlayerView({
@@ -29,7 +33,9 @@ export function ClipPlayerView({
   onSkipNext, onSkipPrev, onClose, onMinimize,
   formatTime, volume, isMuted, setIsMuted,
   playbackRate, setPlaybackRate,
-  isLoading = false
+  isLoading = false,
+  hasError = false,
+  brightness, saturation, onFiltersChange
 }: ClipPlayerViewProps) {
   const [showControls, setShowControls] = useState(true);
   const [isHovering, setIsHovering]   = useState(false);
@@ -98,25 +104,47 @@ export function ClipPlayerView({
                   <Settings size={20} />
                 </button>
 
-              <AnimatePresence>
+                <AnimatePresence>
                 {showSettings && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.9, y: 10 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                    className="absolute top-full right-0 mt-2 w-48 bg-zinc-900/90 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-2 z-[100]"
+                    className="absolute top-full right-0 mt-2 w-56 bg-zinc-900/90 backdrop-blur-3xl border border-white/10 rounded-xl shadow-2xl p-4 z-[200] space-y-4"
                   >
-                    <p className="text-[10px] font-black text-white/40 uppercase tracking-tighter mb-2 px-2">Vitesse de lecture</p>
-                    <div className="grid grid-cols-2 gap-1">
-                      {[0.5, 0.75, 1, 1.25, 1.5, 2].map(v => (
-                        <button
-                          key={v}
-                          onClick={() => { setPlaybackRate(v); setShowSettings(false); }}
-                          className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${playbackRate === v ? 'bg-violet-600 text-white shadow-lg' : 'hover:bg-white/5 text-white/60'}`}
-                        >
-                          {v === 1 ? 'Normale' : `${v}x`}
-                        </button>
-                      ))}
+                    <div>
+                      <p className="text-[10px] font-black text-white/40 uppercase tracking-tighter mb-2">Vitesse</p>
+                      <div className="grid grid-cols-3 gap-1">
+                        {[0.5, 1, 1.5, 2].map(v => (
+                          <button
+                            key={v}
+                            onClick={() => { setPlaybackRate(v); }}
+                            className={`px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all ${playbackRate === v ? 'bg-violet-600 text-white shadow-lg' : 'hover:bg-white/5 text-white/60'}`}
+                          >
+                            {v}x
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-[10px] font-black text-white/40 uppercase tracking-tighter mb-2">Amélioration Vidéo</p>
+                      <div className="space-y-3">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex justify-between text-[8px] font-bold text-white/60 uppercase">
+                            <span>Luminosité</span>
+                            <span>{Math.round(brightness * 100)}%</span>
+                          </div>
+                          <input type="range" min="0.5" max="1.5" step="0.05" value={brightness} onChange={(e) => onFiltersChange({ brightness: parseFloat(e.target.value) })} className="w-full h-1 bg-white/10 rounded-full accent-violet-500" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex justify-between text-[8px] font-bold text-white/60 uppercase">
+                            <span>Saturation</span>
+                            <span>{Math.round(saturation * 100)}%</span>
+                          </div>
+                          <input type="range" min="0" max="2" step="0.1" value={saturation} onChange={(e) => onFiltersChange({ saturation: parseFloat(e.target.value) })} className="w-full h-1 bg-white/10 rounded-full accent-emerald-500" />
+                        </div>
+                      </div>
                     </div>
                   </motion.div>
                 )}
@@ -134,25 +162,49 @@ export function ClipPlayerView({
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="absolute inset-0 z-20 flex items-center justify-center gap-8 md:gap-16 pointer-events-auto"
+            className="absolute inset-0 z-20 flex items-center justify-center gap-4 md:gap-12 pointer-events-auto"
           >
-            <button onClick={onSkipPrev} className="p-4 text-white/80 hover:text-white hover:scale-110 transition-all">
-              <SkipBack size={32} fill="currentColor" />
+            <button onClick={onSkipPrev} className="p-2 text-white/60 hover:text-white transition-all hidden md:block">
+              <SkipBack size={24} fill="currentColor" />
+            </button>
+
+            {/* Skip -10s */}
+            <button 
+              onClick={() => onSeek(Math.max(0, played - (10 / duration)))}
+              className="group flex flex-col items-center justify-center w-14 h-14 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 backdrop-blur-md transition-all active:scale-95"
+              title="Reculer de 10s"
+            >
+              <div className="relative group-hover:scale-110 transition-transform">
+                <SkipBack size={24} className="rotate-180 scale-x-[-1]" />
+                <span className="absolute inset-0 flex items-center justify-center text-[7px] font-black mt-0.5 opacity-80">-10</span>
+              </div>
             </button>
             
             <button 
               onClick={() => setIsPlaying(!isPlaying)}
-              className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-violet-600 flex items-center justify-center text-white hover:scale-105 active:scale-95 transition-all shadow-[0_0_30px_rgba(143,0,255,0.4)] relative"
+              className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-white flex items-center justify-center text-black hover:scale-105 active:scale-95 transition-all shadow-[0_10px_40px_rgba(255,255,255,0.2)] relative z-30"
             >
               {isPlaying ? (
-                <Pause size={40} fill="white" />
+                <Pause size={40} fill="black" />
               ) : (
-                <Play size={40} fill="white" className="ml-2" />
+                <Play size={40} fill="black" className="ml-2" />
               )}
             </button>
 
-            <button onClick={onSkipNext} className="p-4 text-white/80 hover:text-white hover:scale-110 transition-all">
-              <SkipForward size={32} fill="currentColor" />
+            {/* Skip +10s */}
+            <button 
+              onClick={() => onSeek(Math.min(0.9999, played + (10 / duration)))}
+              className="group flex flex-col items-center justify-center w-14 h-14 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 backdrop-blur-md transition-all active:scale-95"
+              title="Avancer de 10s"
+            >
+              <div className="relative group-hover:scale-110 transition-transform">
+                <SkipForward size={24} />
+                <span className="absolute inset-0 flex items-center justify-center text-[7px] font-black mt-0.5 opacity-80">+10</span>
+              </div>
+            </button>
+
+            <button onClick={onSkipNext} className="p-2 text-white/60 hover:text-white transition-all hidden md:block">
+              <SkipForward size={24} fill="currentColor" />
             </button>
           </motion.div>
         )}
@@ -214,20 +266,43 @@ export function ClipPlayerView({
         <X size={20} />
       </button>
 
-      {/* Loading Overlay Global */}
+      {/* Loading & Error Overlay */}
       <AnimatePresence>
-        {isLoading && (
+        {(isLoading || hasError) && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-[80] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px]"
+            className={`absolute inset-0 z-[80] flex flex-col items-center justify-center bg-black/60 backdrop-blur-md ${hasError ? 'pointer-events-auto' : 'pointer-events-none'}`}
           >
-            <div className="relative">
-              <div className="absolute inset-0 rounded-full bg-violet-500 blur-2xl opacity-20 animate-pulse" />
-              <Loader2 size={64} className="text-violet-500 animate-spin relative z-10" />
-            </div>
-            <p className="mt-4 text-violet-400 font-bold tracking-widest text-xs uppercase animate-pulse">Chargement...</p>
+            {hasError ? (
+              <div className="flex flex-col items-center justify-center p-8 bg-black/40 rounded-3xl border border-red-500/20 shadow-[0_0_50px_rgba(239,68,68,0.2)]">
+                <div className="relative mb-6">
+                  <div className="absolute inset-0 rounded-full bg-red-500 blur-2xl opacity-20 animate-pulse" />
+                  <AlertTriangle size={64} className="text-red-500 relative z-10" />
+                </div>
+                <h3 className="text-xl font-black text-white mb-2 tracking-tight">Lecture impossible</h3>
+                <p className="text-sm text-red-200/60 text-center max-w-xs mb-6">
+                  Le contenu ne peut pas être lu actuellement. Il s'agit peut-être d'une restriction régionale ou d'un blocage YouTube.
+                </p>
+                <button
+                  onClick={onSkipNext}
+                  className="px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-xl transition-colors shadow-[0_0_20px_rgba(239,68,68,0.4)] flex items-center gap-2"
+                >
+                  <SkipForward size={18} />
+                  Passer au suivant
+                </button>
+              </div>
+            ) : (
+              // Loading State
+              <>
+                <div className="relative">
+                  <div className="absolute inset-0 rounded-full bg-violet-500 blur-2xl opacity-20 animate-pulse" />
+                  <Loader2 size={64} className="text-violet-500 animate-spin relative z-10" />
+                </div>
+                <p className="mt-4 text-violet-400 font-bold tracking-widest text-xs uppercase animate-pulse">Chargement...</p>
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

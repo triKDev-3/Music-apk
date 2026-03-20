@@ -57,7 +57,7 @@ export async function searchYouTube(query: string): Promise<Track[]> {
   }
 
   try {
-    const params = `part=snippet&q=${encodeURIComponent(query)}&type=video&videoCategoryId=10&maxResults=15`;
+    const params = `part=snippet&q=${encodeURIComponent(query)}&type=video&videoCategoryId=10&maxResults=50`;
     const searchUrl = getApiUrl('search', params);
 
     const res = await fetch(searchUrl, { headers: getHeaders() });
@@ -119,8 +119,12 @@ export async function searchYouTube(query: string): Promise<Track[]> {
 async function fetchFromBackend(query: string): Promise<Track[]> {
     try {
         console.log(`[YouTube] Recherche Backend pour: "${query}"`);
-        const res = await fetch(`http://localhost:4000/search?q=${encodeURIComponent(query)}`);
-        if (res.ok) return await res.json();
+        const res = await fetch(`/api/yt-search?q=${encodeURIComponent(query)}`);
+        if (res.ok) {
+            const data = await res.json();
+            // /api/yt-search returns { items: [...] }
+            return Array.isArray(data) ? data : (data.items || []);
+        }
         throw new Error('Backend non disponible');
     } catch (e) {
         console.error('[YouTube] Échec critique recherche:', e);
@@ -178,9 +182,11 @@ export async function searchLiveMusic(): Promise<Track[]> {
 
   try {
     const params = `part=snippet&type=video&eventType=live&videoCategoryId=10&maxResults=8`;
-    const url = getApiUrl('search', params);
-    const res = await fetch(url, { headers: getHeaders() });
+    const searchUrl = getApiUrl('search', params);
+
+    const res = await fetch(searchUrl, { headers: getHeaders() });
     const data = await res.json();
+
 
     if (!data.items) return [];
 

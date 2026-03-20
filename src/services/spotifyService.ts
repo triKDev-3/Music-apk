@@ -1,4 +1,5 @@
 import { Track } from '../types';
+import { searchYouTube } from './youtubeService';
 
 const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
 const CLIENT_SECRET = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET;
@@ -15,19 +16,11 @@ async function getAccessToken(): Promise<string | null> {
   }
 
   try {
-    const response = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        Authorization: 'Basic ' + btoa(`${CLIENT_ID}:${CLIENT_SECRET}`),
-      },
-      body: 'grant_type=client_credentials',
-    });
-
+    const response = await fetch('/api/spotify/token');
     const data = await response.json();
     if (data.access_token) {
       accessToken = data.access_token;
-      tokenExpiresAt = Date.now() + data.expires_in * 1000 - 60000; // 1 min margin
+      tokenExpiresAt = Date.now() + data.expires_in * 1000 - 60000;
       return accessToken;
     }
   } catch (error) {
@@ -45,7 +38,7 @@ export async function searchSpotify(query: string): Promise<Track[]> {
 
   try {
     const response = await fetch(
-      `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=15`,
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=50`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -76,7 +69,6 @@ export async function searchSpotify(query: string): Promise<Track[]> {
  * Récupère le youtubeId pour un titre Spotify (Bridging)
  */
 export async function getYouTubeIdForSpotifyTrack(track: Track): Promise<string | null> {
-  const { searchYouTube } from './youtubeService';
   const query = `${track.artist} - ${track.title} audio`;
   try {
     const results = await searchYouTube(query);

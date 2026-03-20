@@ -88,10 +88,21 @@ export function PlayerBar({
             </div>
             
             <div className="min-w-0 flex flex-col justify-center ml-2 mr-2 overflow-hidden">
-              <div className="marquee-container">
-                <p className="font-bold text-sm inline-block animate-marquee" style={{ color: 'var(--text-primary)' }}>
-                  {currentTrack.title} &nbsp; • &nbsp; {currentTrack.title} &nbsp; • &nbsp; {currentTrack.title} &nbsp; • &nbsp;
-                </p>
+              <div className="flex items-center gap-2">
+                <div className="marquee-container flex-1">
+                  <p className="font-bold text-sm inline-block animate-marquee" style={{ color: 'var(--text-primary)' }}>
+                    {currentTrack.title} &nbsp; • &nbsp; {currentTrack.title} &nbsp; • &nbsp; {currentTrack.title} &nbsp; • &nbsp;
+                  </p>
+                </div>
+                {/* Visualizer Mini */}
+                {isPlaying && (
+                  <div className="visualizer-container scale-75 origin-right">
+                    <div className="visualizer-bar" style={{ animationDelay: '0s' }} />
+                    <div className="visualizer-bar" style={{ animationDelay: '0.2s' }} />
+                    <div className="visualizer-bar" style={{ animationDelay: '0.4s' }} />
+                    <div className="visualizer-bar" style={{ animationDelay: '0.1s' }} />
+                  </div>
+                )}
               </div>
               <div className="marquee-container">
                 <p className="text-xs opacity-80 inline-block animate-marquee" style={{ color: 'var(--text-secondary)', animationDelay: '2s' }}>
