@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Play Me</string>
+    <string name="title_activity_main">Play Me</string>
+    <string name="package_name">playme.apk.com</string>
+    <string name="custom_url_scheme">playme.apk.com</string>
+</resources>
