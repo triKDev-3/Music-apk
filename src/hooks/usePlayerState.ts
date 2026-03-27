@@ -138,7 +138,7 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
       });
     } else if (currentTrack?.youtubeId && !isClipMode) {
       // Écoute audio pure via notre proxy redirect vers yt-dlp
-      setLocalUrl(`http://localhost:3001/api/stream?id=${currentTrack.youtubeId}`);
+      setLocalUrl(`/api/stream?id=${currentTrack.youtubeId}`);
     } else {
       // Mode Clip Vidéo : on coupe l'audio local et on laisse ReactPlayer tout gérer
       setLocalUrl(null);

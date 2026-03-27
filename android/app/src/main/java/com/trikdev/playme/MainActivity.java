@@ -1,4 +1,4 @@
-package playme.apk.com;
+package com.trikdev.playme;
 
 import com.getcapacitor.BridgeActivity;
 

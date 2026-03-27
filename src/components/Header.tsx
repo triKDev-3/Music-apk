@@ -1,3 +1,4 @@
+import React from 'react';
 import { ChevronLeft, ChevronRight, Search, Sun, Moon, Menu, RefreshCw, Mic } from 'lucide-react';
 import { Theme, type User } from '../types';
 import { UserMenu } from './UserMenu';

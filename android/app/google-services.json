@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "742584976934",
+    "project_id": "playme-26da2",
+    "storage_bucket": "playme-26da2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:742584976934:android:eaf55fb6c789a5f22d48e7",
+        "android_client_info": {
+          "package_name": "com.trikdev.playme"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "742584976934-0nmes6v5qfv9vfhiqgvdcoa9qls9h86i.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB8glqJ4hpTvdfYJieO7spyj9L6XCh_a3w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "742584976934-0nmes6v5qfv9vfhiqgvdcoa9qls9h86i.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

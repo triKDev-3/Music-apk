@@ -3,11 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import * as React from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, AlertCircle, Play, Maximize2, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import ReactPlayer from 'react-player';
+import { Capacitor } from '@capacitor/core';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 import { usePlayerState } from './hooks/usePlayerState';
 import { useAuth }        from './hooks/useAuth';
@@ -32,40 +35,7 @@ import { GoogleAuthProvider } from 'firebase/auth';
 import { Track, Playlist, View, Theme }  from './types';
 import { INITIAL_TRACKS } from './data/initialTracks';
 
-// ── Error Boundary ────────────────────────────────────────────────────────────
-class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: any }> {
-  constructor(props: any) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error: any) { return { hasError: true, error }; }
-  componentDidCatch(error: any, info: any) { console.error('App Crash:', error, info); }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="h-screen w-screen flex flex-col items-center justify-center bg-zinc-950 text-white p-10 text-center">
-          <div className="p-6 bg-red-500/10 rounded-3xl border border-red-500/20 mb-8">
-            <AlertCircle size={64} className="text-red-500 mx-auto mb-4" />
-            <h1 className="text-3xl font-bold mb-2">Une erreur critique est survenue</h1>
-            <p className="text-zinc-400 max-w-md mx-auto">L'application a rencontré un problème inattendu.</p>
-            <pre className="mt-4 p-4 bg-black/40 rounded-xl text-xs text-red-400 overflow-auto text-left max-w-lg mx-auto">
-              {this.state.error?.message || 'Erreur inconnue'}
-            </pre>
-          </div>
-          <button
-            onClick={() => { localStorage.clear(); window.location.reload(); }}
-            className="px-8 py-3 bg-[var(--accent)] text-white font-bold rounded-full hover:scale-105 transition-transform shadow-[0_0_20px_var(--accent-glow)]"
-          >
-            Réinitialiser et Recharger
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 
-// ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [theme, setTheme]             = useState<Theme>('dark');
   const [currentView, setCurrentView] = useState<View>('home');
@@ -133,6 +103,18 @@ export default function App() {
 
   const { user, loading: authLoading } = useAuth();
   const player = usePlayerState({ searchResults, user });
+
+  // ── Initialisation Google Auth (Capacitor) ──────────────────────────────
+  useEffect(() => {
+    // Si on est sur le Web, on initialise GoogleAuth avec l'ID client de Firebase
+    if (!Capacitor.isNativePlatform()) {
+      GoogleAuth.initialize({
+        clientId: '742584976934-0nmes6v5qfv9vfhiqgvdcoa9qls9h86i.apps.googleusercontent.com',
+        scopes: ['profile', 'email'],
+        grantOfflineAccess: true,
+      });
+    }
+  }, []);
 
 
   // ── Chargement Initial (Firestore ou LocalStorage) ──────────────────────────
@@ -519,7 +501,7 @@ export default function App() {
 
   // ── Rendu ─────────────────────────────────────────────────────────────────
   return (
-    <ErrorBoundary>
+    <>
       <div className="relative flex h-[100dvh] w-screen overflow-hidden font-sans bg-black">
 
         {/* ── Nouveau Loader Premium (Remplace le Splash Screen bloquant) ── */}
@@ -927,6 +909,6 @@ export default function App() {
         onClose={() => setIsRecognitionOpen(false)} 
         onResult={handleRecognitionResult}
       />
-    </ErrorBoundary>
+    </>
   );
 }
