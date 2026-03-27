@@ -10,46 +10,78 @@ import { spawn } from "child_process";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize SQLite Database
-const dbPath = process.env.VERCEL ? path.join("/tmp", "cache.db") : path.join(__dirname, "cache.db");
-const db = new Database(dbPath);
+// Initialize SQLite Database with fallback
+let db: any;
+let useMemoryCache = false;
+try {
+  const dbPath = process.env.VERCEL ? path.join("/tmp", "cache.db") : path.join(__dirname, "cache.db");
+  db = new Database(dbPath);
 
-// Create tables if they don't exist
-db.exec(`
-  CREATE TABLE IF NOT EXISTS search_cache (
-    query TEXT PRIMARY KEY,
-    results TEXT,
-    timestamp INTEGER
-  );
-  CREATE TABLE IF NOT EXISTS gemini_cache (
-    query TEXT PRIMARY KEY,
-    results TEXT,
-    timestamp INTEGER
-  );
-`);
+  // Create tables if they don't exist
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS search_cache (
+      query TEXT PRIMARY KEY,
+      results TEXT,
+      timestamp INTEGER
+    );
+    CREATE TABLE IF NOT EXISTS gemini_cache (
+      query TEXT PRIMARY KEY,
+      results TEXT,
+      timestamp INTEGER
+    );
+  `);
+  console.log("SQLite database initialized successfully.");
+} catch (error) {
+  console.error("Failed to initialize SQLite database, falling back to memory cache:", error);
+  useMemoryCache = true;
+}
 
 const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
+const memoryCache: Record<string, { results: any, timestamp: number }> = {};
 
 // Helper functions for cache
 const getCachedSearch = (query: string, table: string) => {
-  const stmt = db.prepare(`SELECT * FROM ${table} WHERE query = ?`);
-  const row = stmt.get(query) as any;
-  if (row) {
-    if (Date.now() - row.timestamp < CACHE_EXPIRY) {
-      return JSON.parse(row.results);
-    } else {
-      db.prepare(`DELETE FROM ${table} WHERE query = ?`).run(query);
+  const cacheKey = `${table}:${query}`;
+  if (useMemoryCache) {
+    const entry = memoryCache[cacheKey];
+    if (entry && (Date.now() - entry.timestamp < CACHE_EXPIRY)) {
+      return entry.results;
     }
+    return null;
+  }
+
+  try {
+    const stmt = db.prepare(`SELECT * FROM ${table} WHERE query = ?`);
+    const row = stmt.get(query) as any;
+    if (row) {
+      if (Date.now() - row.timestamp < CACHE_EXPIRY) {
+        return JSON.parse(row.results);
+      } else {
+        db.prepare(`DELETE FROM ${table} WHERE query = ?`).run(query);
+      }
+    }
+  } catch (err) {
+    console.error("Cache read error:", err);
   }
   return null;
 };
 
 const setCachedSearch = (query: string, results: any, table: string) => {
-  const stmt = db.prepare(`
-    INSERT OR REPLACE INTO ${table} (query, results, timestamp)
-    VALUES (?, ?, ?)
-  `);
-  stmt.run(query, JSON.stringify(results), Date.now());
+  const cacheKey = `${table}:${query}`;
+  if (useMemoryCache) {
+    memoryCache[cacheKey] = { results, timestamp: Date.now() };
+    return;
+  }
+
+  try {
+    const stmt = db.prepare(`
+      INSERT OR REPLACE INTO ${table} (query, results, timestamp)
+      VALUES (?, ?, ?)
+    `);
+    stmt.run(query, JSON.stringify(results), Date.now());
+  } catch (err) {
+    console.error("Cache write error:", err);
+  }
 };
 
 const app = express();
