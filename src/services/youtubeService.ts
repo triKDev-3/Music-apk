@@ -118,25 +118,35 @@ export async function searchYouTube(query: string): Promise<Track[]> {
 /** Assistant pour appeler le backend de secours */
 async function fetchFromBackend(query: string): Promise<Track[]> {
     try {
-        console.log(`[YouTube] Recherche Backend pour: "${query}"`);
-        const res = await fetch(`/api/yt-search?q=${encodeURIComponent(query)}`);
+        console.log(`[YouTube] Recherche via Backend API pour: "${query}"`);
+        // On utilise l'API YouTube officielle via notre proxy backend (plus fiable sur Vercel que yt-dlp)
+        const res = await fetch(`/api/search/youtube?q=${encodeURIComponent(query)}`);
         if (res.ok) {
             const data = await res.json();
-            // /api/yt-search returns { items: [...] }
             return Array.isArray(data) ? data : (data.items || []);
         }
-        throw new Error('Backend non disponible');
+        throw new Error('Backend API non disponible');
     } catch (e) {
-        console.error('[YouTube] Échec critique recherche:', e);
+        console.error('[YouTube] Échec critique recherche backend:', e);
         return getMockResults(query);
     }
 }
 
-/** Résultats de secours enrichis (utilisés sans connexion) */
+/** Résultats de secours enrichis (utilisés sans connexion ou en cas d'échec total) */
 export function getMockResults(query: string): Track[] {
   const q = query.toLowerCase().trim();
 
   const mockDB: Record<string, Track[]> = {
+    gims: [
+      { id: 'gims1', title: 'Spider (ft. Dystinct)', artist: 'Gims', album: 'Spider', coverUrl: 'https://i.ytimg.com/vi/X_W_q-K0Y-w/hqdefault.jpg', duration: 185, youtubeId: 'X_W_q-K0Y-w' },
+      { id: 'gims2', title: 'Bella', artist: 'Gims', album: 'Subliminal', coverUrl: 'https://i.ytimg.com/vi/rClUvS2-T-o/hqdefault.jpg', duration: 210, youtubeId: 'rClUvS2-T-o' },
+      { id: 'gims3', title: 'Sapés Comme Jamais', artist: 'Gims', album: 'M.C.A.R.', coverUrl: 'https://i.ytimg.com/vi/4bS_fXpntR8/hqdefault.jpg', duration: 230, youtubeId: '4bS_fXpntR8' },
+    ],
+    dadju: [
+      { id: 'dad1', title: 'Reine', artist: 'Dadju', album: 'Gentleman 2.0', coverUrl: 'https://i.ytimg.com/vi/tVKaN_H3SLA/hqdefault.jpg', duration: 215, youtubeId: 'tVKaN_H3SLA' },
+      { id: 'dad2', title: 'Bob Marley', artist: 'Dadju', album: 'Gentleman 2.0', coverUrl: 'https://i.ytimg.com/vi/2I9X_yETozI/hqdefault.jpg', duration: 200, youtubeId: '2I9X_yETozI' },
+      { id: 'dad3', title: 'Django', artist: 'Dadju', album: 'Gentleman 2.0', coverUrl: 'https://i.ytimg.com/vi/XInW75e7W7U/hqdefault.jpg', duration: 220, youtubeId: 'XInW75e7W7U' },
+    ],
     tiakola: [
       { id: 'tia1', title: 'Meuda (Clip Officiel)', artist: 'TiakolaVEVO',      album: 'Mélo',       coverUrl: 'https://i.ytimg.com/vi/q_G_itv1lGo/hqdefault.jpg',  duration: 155, youtubeId: 'q_G_itv1lGo' },
       { id: 'tia2', title: 'Gasolina ft. Rsko',    artist: 'Tiakola',           album: 'Mélo',       coverUrl: 'https://i.ytimg.com/vi/2R2fB79yT9I/hqdefault.jpg',  duration: 215, youtubeId: '2R2fB79yT9I' },
