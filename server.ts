@@ -257,7 +257,7 @@ app.get("/api/search/youtube", async (req, res) => {
   }
 
   try {
-    const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=10&key=${API_KEY}`);
+    const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&videoCategoryId=10&maxResults=20&key=${API_KEY}`);
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.error("YouTube API full error:", JSON.stringify(errorData, null, 2));
@@ -313,7 +313,7 @@ app.post("/api/search/gemini", async (req, res) => {
     }
 
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.0-flash",
       contents,
       config: {
         responseMimeType: "application/json",
@@ -371,7 +371,7 @@ app.post("/api/recognize", async (req, res) => {
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.0-flash",
       contents: {
         parts: [
           {
@@ -423,7 +423,7 @@ app.post("/api/lyrics", async (req, res) => {
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.0-flash",
       contents: `Write the lyrics for the song "${track.title}" by "${track.artist}". Format it as a simple text with line breaks. If you don't know the exact lyrics, provide a poetic interpretation or a placeholder text.`,
     });
     res.json({ lyrics: response.text || "Lyrics not found." });

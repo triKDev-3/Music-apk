@@ -119,16 +119,17 @@ export async function searchYouTube(query: string): Promise<Track[]> {
 async function fetchFromBackend(query: string): Promise<Track[]> {
     try {
         console.log(`[YouTube] Recherche via Backend API pour: "${query}"`);
-        // On utilise l'API YouTube officielle via notre proxy backend (plus fiable sur Vercel que yt-dlp)
         const res = await fetch(`/api/search/youtube?q=${encodeURIComponent(query)}`);
         if (res.ok) {
             const data = await res.json();
-            return Array.isArray(data) ? data : (data.items || []);
+            const results = Array.isArray(data) ? data : (data.items || []);
+            if (results.length > 0) return results;
         }
-        throw new Error('Backend API non disponible');
+        console.warn(`[YouTube] Backend indisponible pour "${query}", cascade vers Gemini.`);
+        return []; // Retourner [] pour déclencher le fallback Gemini dans App.tsx
     } catch (e) {
         console.error('[YouTube] Échec critique recherche backend:', e);
-        return getMockResults(query);
+        return []; // Idem : laisser App.tsx cascader vers Gemini
     }
 }
 

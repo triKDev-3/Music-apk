@@ -137,10 +137,9 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
         }
       });
     } else if (currentTrack?.youtubeId && !isClipMode) {
-      // Écoute audio pure via notre proxy backend (maintenant compatible Vercel via ytdl-core)
-      setLocalUrl(`/api/stream?id=${currentTrack.youtubeId}`);
+      // Audio YouTube : ReactPlayer hors-écran gère la lecture, pas de proxy stream nécessaire
+      setLocalUrl(null);
     } else {
-      // Mode Clip Vidéo ou local : on vide le flux proxy
       setLocalUrl(null);
     }
     
