@@ -136,11 +136,11 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
           console.log('[Player] Local Blob URL created');
         }
       });
-    } else if (currentTrack?.youtubeId && !isClipMode) {
-      // Écoute audio pure via notre proxy redirect vers yt-dlp
-      setLocalUrl(`/api/stream?id=${currentTrack.youtubeId}`);
+    } else if (currentTrack?.youtubeId && currentTrack.youtubeId !== 'local-blob') {
+      // Sur Vercel (et pour éviter les problèmes de proxy), on utilise maintenant 
+      // directement le lecteur YouTube (ReactPlayer) même pour l'audio.
+      setLocalUrl(null);
     } else {
-      // Mode Clip Vidéo : on coupe l'audio local et on laisse ReactPlayer tout gérer
       setLocalUrl(null);
     }
     
