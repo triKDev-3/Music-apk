@@ -624,7 +624,7 @@ export default function App() {
                <X size={12} />
              </button>
           )}
-        {player.youtubeId && hasStarted && (
+        {player.youtubeId && hasStarted && player.isClipMode && (
           <ReactPlayer
             key={`clip-${player.youtubeId}`}
             ref={player.reactPlayerRef as any}

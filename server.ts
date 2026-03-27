@@ -172,41 +172,65 @@ app.get("/api/spotify/token", async (req, res) => {
   }
 });
 
-// YouTube Stream Proxy (Nouvelle Fonctionnalité)
-app.get("/api/stream", (req, res) => {
+// YouTube Stream Proxy (Optimisé pour Vercel via ytdl-core)
+app.get("/api/stream", async (req, res) => {
   const id = req.query.id as string;
   if (!id) return res.status(400).send("ID is required");
 
-  // Vercel Check: yt-dlp won't be available
+  // On privilégie ytdl-core sur Vercel car yt-dlp (binaire) est souvent absent
   if (process.env.VERCEL) {
-    console.warn(`[Stream] Stream proxy not available on Vercel for ${id}`);
-    // On peut renvoyer une erreur 503 ou essayer de rediriger vers un service tiers
-    return res.status(503).json({ error: "Stream extraction via yt-dlp is not available on Vercel." });
+    console.log(`[Stream] Streaming via ytdl-core sur Vercel pour: ${id}`);
+    try {
+      const { default: ytdl } = await import("@distube/ytdl-core");
+      const url = `https://www.youtube.com/watch?v=${id}`;
+      
+      res.setHeader("Content-Type", "audio/mpeg");
+      // ytdl-core stream directly to response
+      const stream = ytdl(url, {
+        filter: "audioonly",
+        quality: "highestaudio",
+        highWaterMark: 1 << 25
+      });
+      
+      stream.pipe(res);
+      
+      stream.on("error", (err) => {
+        console.error(`[ytdl-core error]`, err);
+        if (!res.headersSent) res.status(500).send("Stream error");
+        else res.end();
+      });
+
+      req.on("close", () => {
+        if (stream.destroy) stream.destroy();
+      });
+
+      return;
+    } catch (error) {
+      console.error("[Stream] Échec ytdl-core:", error);
+      return res.status(500).json({ error: "Stream extraction failed" });
+    }
   }
 
-  console.log(`[Stream] Extraction URL audio pour: ${id}`);
-  
+  // Fallback local avec yt-dlp pour la performance/vitesse si disponible
+  console.log(`[Stream] Extraction via yt-dlp local pour: ${id}`);
   const ytDlp = spawn("yt-dlp", [
     "-f", "bestaudio",
-    "-g", // -g means "Get URL" (don't download, just print the direct stream URL)
+    "-g",
     "--quiet",
     "--no-playlist",
     `https://www.youtube.com/watch?v=${id}`
   ]);
 
   let streamUrl = "";
-
   ytDlp.stdout.on("data", (data) => {
     streamUrl += data.toString();
   });
 
   ytDlp.on("close", (code) => {
     if (code === 0 && streamUrl.trim()) {
-      console.log(`[Stream] URL générée avec succès, redirection de l'utilisateur !`);
       res.redirect(streamUrl.trim());
     } else {
-      console.error(`[Stream] yt-dlp a échoué à générer l'URL (code: ${code})`);
-      if (!res.headersSent) res.status(500).send("Stream URL extraction failed");
+      if (!res.headersSent) res.status(500).send("Stream fallback extraction failed");
     }
   });
 
