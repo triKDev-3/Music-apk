@@ -108,14 +108,32 @@ app.get("/api/stream", async (req, res) => {
   const id = req.query.id as string;
   if (!id) return res.status(400).send("ID is required");
 
-  console.log(`[Stream] Streaming via ytdl-core pour: ${id}`);
+  console.log(`[Stream] Requesting stream for: ${id}`);
   
-  const startYtDlpFallback = () => {
-    if (process.env.VERCEL) {
-      console.error("[Stream] ytdl-core failed and yt-dlp fallback is not available on Vercel.");
-      if (!res.headersSent) res.status(503).send("Stream extraction failed on Vercel");
-      return;
+  try {
+    const { default: ytdl } = await import("@distube/ytdl-core");
+    const url = `https://www.youtube.com/watch?v=${id}`;
+    
+    // On Vercel, we try to get the direct URL to avoid the 10s timeout
+    const info = await ytdl.getInfo(url);
+    const format = ytdl.chooseFormat(info.formats, { 
+      filter: "audioonly",
+      quality: "highestaudio"
+    });
+
+    if (format && format.url) {
+      console.log(`[Stream] Redirecting to direct URL for: ${id}`);
+      return res.redirect(format.url);
     }
+
+    throw new Error("No suitable format found");
+  } catch (error: any) {
+    console.error("[Stream] Extraction failed:", error.message);
+    if (process.env.VERCEL) {
+      return res.status(500).send("Stream extraction failed on Vercel");
+    }
+    
+    // Fallback locally only
     console.log(`[Stream] Fallback vers yt-dlp pour: ${id}`);
     const ytDlp = spawn("yt-dlp", [
       "-f", "bestaudio",
@@ -126,62 +144,14 @@ app.get("/api/stream", async (req, res) => {
     ]);
 
     let streamUrl = "";
-    ytDlp.stdout.on("data", (data) => {
-      streamUrl += data.toString();
-    });
-
+    ytDlp.stdout.on("data", (data) => streamUrl += data.toString());
     ytDlp.on("close", (code) => {
       if (code === 0 && streamUrl.trim()) {
         res.redirect(streamUrl.trim());
       } else {
-        if (!res.headersSent) res.status(500).send("Stream fallback extraction failed");
+        if (!res.headersSent) res.status(500).send("Stream fallback failed");
       }
     });
-
-    ytDlp.on("error", (err) => {
-      console.error("[Stream] yt-dlp non disponible ou erreur:", err);
-      if (!res.headersSent) res.status(500).send("Stream extraction failed");
-    });
-
-    req.on("close", () => {
-      ytDlp.kill();
-    });
-  };
-
-  try {
-    const { default: ytdl } = await import("@distube/ytdl-core");
-    const url = `https://www.youtube.com/watch?v=${id}`;
-    
-    const stream = ytdl(url, {
-      filter: "audioonly",
-      quality: "highestaudio",
-      highWaterMark: 1 << 25
-    });
-    
-    let hasError = false;
-    stream.on("error", (err) => {
-      console.error(`[ytdl-core error]`, err);
-      hasError = true;
-      if (!res.headersSent) {
-        startYtDlpFallback();
-      } else {
-        res.end();
-      }
-    });
-
-    stream.on("info", () => {
-      if (!hasError) {
-        res.setHeader("Content-Type", "audio/mpeg");
-        stream.pipe(res);
-      }
-    });
-
-    req.on("close", () => {
-      if (stream.destroy) stream.destroy();
-    });
-  } catch (error) {
-    console.error("[Stream] Échec initialisation ytdl-core:", error);
-    startYtDlpFallback();
   }
 });
 

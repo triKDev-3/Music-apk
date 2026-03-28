@@ -45,15 +45,15 @@ let _isQuotaExceeded = false;
 
 /** Recherche des vidéos YouTube Music via OAuth ou Backend Fallback */
 export async function searchYouTube(query: string): Promise<Track[]> {
-  // 1. Si on sait déjà que le quota est dépassé, on va direct au backend
-  if (_isQuotaExceeded) {
-    console.log('[YouTube] Quota dépassé — Utilisation directe du Backend.');
-    return fetchFromBackend(query);
+  // On privilégie toujours le backend pour éviter les problèmes de quota API Google
+  const backendResults = await fetchFromBackend(query);
+  if (backendResults.length > 0) {
+    return backendResults;
   }
 
-  // 2. Si aucune auth, on tente quand même l'API Key ou on bascule au backend
+  // Fallback sur l'API Google seulement si le backend échoue et qu'on a un token/key
   if (!_oauthToken && !YOUTUBE_API_KEY) {
-    return fetchFromBackend(query);
+    return [];
   }
 
   try {
