@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Search, Library, Play, Heart, X, Music } from 'lucide-react';
+import { Home, Search, Library, Play, Heart, X, Music, Sparkles } from 'lucide-react';
 import { View, Playlist } from '../types';
 
 interface SidebarItemProps {
@@ -81,6 +81,7 @@ export function Sidebar({
           <SidebarItem icon={<Home size={20} />} label="Home" active={currentView === 'home'} onClick={() => navigate('home')} />
           <SidebarItem icon={<Search size={20} />} label="Search" active={currentView === 'search'} onClick={() => navigate('search')} />
           <SidebarItem icon={<Library size={20} />} label="Your Library" active={currentView === 'library'} onClick={() => navigate('library')} />
+          <SidebarItem icon={<Sparkles size={20} className="text-violet-400" />} label="AI Studio" active={currentView === 'ai-studio'} onClick={() => navigate('ai-studio')} />
 
           <div className="pt-6 pb-2 px-3">
             <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>Playlists</p>

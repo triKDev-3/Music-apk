@@ -50,53 +50,60 @@ export function PlayerBar({
 
   return (
     <footer
-      className="h-20 sm:h-24 px-2 sm:px-4 flex items-center justify-between z-30 shrink-0 w-full"
+      className="h-16 sm:h-24 px-2 sm:px-4 flex items-center justify-between z-30 shrink-0 w-full relative"
       style={{ background: 'var(--bg-player)', borderTop: '1px solid var(--border)' }}
     >
+      {/* Mobile Progress Bar (Top edge) */}
+      <div className="absolute top-0 left-0 w-full h-0.5 sm:hidden" style={{ background: 'var(--bg-card)' }}>
+        <div 
+          className="h-full bg-emerald-500" 
+          style={{ width: `${duration > 0 ? (played / duration) * 100 : 0}%` }} 
+        />
+      </div>
+
       {/* Track info - Cliquable pour plein écran */}
       <div 
-        className="flex items-center gap-2 w-1/3 min-w-[200px] cursor-pointer group/bar hover:opacity-90 transition-opacity"
+        className="flex items-center gap-2 sm:w-1/3 sm:min-w-[200px] flex-1 cursor-pointer group/bar hover:opacity-90 transition-opacity overflow-hidden"
         onClick={onOpenNowPlaying}
       >
         {currentTrack ? (
           <>
-            <div className="relative group flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 ml-1">
+            <div className="relative group flex-shrink-0 w-10 h-10 sm:w-16 sm:h-16 ml-1">
               {/* Le Disque/Album en rotation */}
               <div 
-                className={`w-full h-full rounded-full border-[3px] border-zinc-800 shadow-[0_0_15px_rgba(0,0,0,0.6)] overflow-hidden transition-all duration-300 ${isPlaying ? 'animate-spin' : ''}`}
+                className={`w-full h-full rounded-full border-2 sm:border-[3px] border-zinc-800 shadow-[0_0_15px_rgba(0,0,0,0.6)] overflow-hidden transition-all duration-300 ${isPlaying ? 'animate-spin' : ''}`}
                 style={{ animationDuration: '8s', animationPlayState: isPlaying ? 'running' : 'paused' }}
               >
-                {/* Centre du vinyl pour un effet plus réaliste */}
-                <div className="absolute inset-0 m-auto w-4 h-4 rounded-full bg-zinc-900 z-10 border-[1.5px] border-zinc-700 shadow-inner"></div>
+                <div className="absolute inset-0 m-auto w-2 h-2 sm:w-4 sm:h-4 rounded-full bg-zinc-900 z-10 border sm:border-[1.5px] border-zinc-700 shadow-inner"></div>
                 <img src={currentTrack.coverUrl} alt={currentTrack.title} className="w-full h-full object-cover" />
               </div>
               {/* Overlay Vidéo ou Loading */}
               <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
                  {isLoading && (
                    <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center backdrop-blur-[2px]">
-                      <Loader2 size={24} className="text-violet-500 animate-spin" />
+                      <Loader2 size={16} className="text-violet-500 animate-spin sm:w-6 sm:h-6" />
                    </div>
                  )}
               </div>
               
               <button
                 onClick={(e) => { e.stopPropagation(); setIsClipMode(!isClipMode); }}
-                className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full z-30 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/60 hidden sm:flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full z-30 backdrop-blur-sm"
               >
                 <Video size={18} style={{ color: isClipMode ? '#8F00FF' : 'white' }} />
               </button>
             </div>
             
-            <div className="min-w-0 flex flex-col justify-center ml-2 mr-2 overflow-hidden">
+            <div className="min-w-0 flex flex-col justify-center ml-2 mr-2 overflow-hidden flex-1">
               <div className="flex items-center gap-2">
                 <div className="marquee-container flex-1">
-                  <p className="font-bold text-sm inline-block animate-marquee" style={{ color: 'var(--text-primary)' }}>
+                  <p className="font-bold text-xs sm:text-sm inline-block animate-marquee" style={{ color: 'var(--text-primary)' }}>
                     {currentTrack.title} &nbsp; • &nbsp; {currentTrack.title} &nbsp; • &nbsp; {currentTrack.title} &nbsp; • &nbsp;
                   </p>
                 </div>
                 {/* Visualizer Mini */}
                 {isPlaying && (
-                  <div className="visualizer-container scale-75 origin-right">
+                  <div className="visualizer-container scale-50 sm:scale-75 origin-right hidden sm:flex">
                     <div className="visualizer-bar" style={{ animationDelay: '0s' }} />
                     <div className="visualizer-bar" style={{ animationDelay: '0.2s' }} />
                     <div className="visualizer-bar" style={{ animationDelay: '0.4s' }} />
@@ -105,15 +112,15 @@ export function PlayerBar({
                 )}
               </div>
               <div className="marquee-container">
-                <p className="text-xs opacity-80 inline-block animate-marquee" style={{ color: 'var(--text-secondary)', animationDelay: '2s' }}>
+                <p className="text-[10px] sm:text-xs opacity-80 inline-block animate-marquee" style={{ color: 'var(--text-secondary)', animationDelay: '2s' }}>
                   {currentTrack.artist} &nbsp; • &nbsp; {currentTrack.artist} &nbsp; • &nbsp; {currentTrack.artist} &nbsp; • &nbsp;
                 </p>
               </div>
             </div>
 
             <button
-              onClick={() => toggleFavorite(currentTrack.id)}
-              className="ml-auto sm:ml-2 transition-transform hover:scale-110 flex-shrink-0"
+              onClick={(e) => { e.stopPropagation(); toggleFavorite(currentTrack.id); }}
+              className="ml-auto sm:ml-2 transition-transform hover:scale-110 flex-shrink-0 hidden sm:block"
               style={{ color: isFav ? '#8F00FF' : 'var(--text-faint)' }}
             >
               <Heart size={20} fill={isFav ? 'currentColor' : 'none'} className={isFav ? 'drop-shadow-[0_0_8px_rgba(143,0,255,0.5)]' : ''} />
@@ -121,8 +128,8 @@ export function PlayerBar({
           </>
         ) : (
           <div className="flex items-center gap-4 ml-1">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-[3px] border-zinc-800/50 flex items-center justify-center" style={{ background: 'var(--bg-card)' }}>
-               <ListMusic size={24} style={{ color: 'var(--text-faint)' }} className="opacity-50" />
+            <div className="w-10 h-10 sm:w-16 sm:h-16 rounded-full border-2 sm:border-[3px] border-zinc-800/50 flex items-center justify-center" style={{ background: 'var(--bg-card)' }}>
+               <ListMusic size={20} style={{ color: 'var(--text-faint)' }} className="opacity-50 sm:w-6 sm:h-6" />
             </div>
             <div className="space-y-2 hidden sm:block">
               <div className="w-24 h-4 rounded" style={{ background: 'var(--bg-card)' }} />
@@ -132,8 +139,8 @@ export function PlayerBar({
         )}
       </div>
 
-      {/* Controls */}
-      <div className="flex flex-col items-center gap-2 w-1/3 max-w-xl px-2">
+      {/* Controls - Desktop */}
+      <div className="hidden sm:flex flex-col items-center gap-2 w-1/3 max-w-xl px-2">
         <div className="flex items-center gap-5 sm:gap-7">
           <Btn active={isShuffle} onClick={() => setIsShuffle(!isShuffle)}><Shuffle size={18} className="hidden sm:block" /></Btn>
           <Btn onClick={skipToPrev}><SkipBack size={22} fill="currentColor" className="hover:text-white" /></Btn>
@@ -188,8 +195,32 @@ export function PlayerBar({
         </div>
       </div>
 
-      {/* Volume & extras */}
-      <div className="flex items-center justify-end gap-3 sm:gap-4 w-1/3 min-w-[120px]">
+      {/* Controls - Mobile */}
+      <div className="flex sm:hidden items-center gap-3 pr-2">
+        <button
+          onClick={(e) => { e.stopPropagation(); toggleFavorite(currentTrack?.id || ''); }}
+          className="transition-transform hover:scale-110 flex-shrink-0"
+          style={{ color: isFav ? '#8F00FF' : 'var(--text-faint)' }}
+        >
+          <Heart size={20} fill={isFav ? 'currentColor' : 'none'} className={isFav ? 'drop-shadow-[0_0_8px_rgba(143,0,255,0.5)]' : ''} />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); setIsPlaying(!isPlaying); }}
+          className="w-10 h-10 flex items-center justify-center transition-transform flex-shrink-0"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          {isLoading ? (
+            <Loader2 size={24} className="animate-spin text-violet-500" />
+          ) : isPlaying ? (
+            <Pause size={24} fill="currentColor" />
+          ) : (
+            <Play size={24} fill="currentColor" />
+          )}
+        </button>
+      </div>
+
+      {/* Volume & extras - Desktop */}
+      <div className="hidden sm:flex items-center justify-end gap-3 sm:gap-4 w-1/3 min-w-[120px]">
         <div className="hidden md:flex gap-4 items-center">
           <Btn active={isClipMode} onClick={() => setIsClipMode(!isClipMode)}><Video size={18} className="hover:text-white transition-colors" /></Btn>
           <Btn><ListMusic size={18} className="hover:text-white transition-colors" /></Btn>

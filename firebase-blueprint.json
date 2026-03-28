@@ -1,0 +1,66 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user preferences and metadata",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "User ID" },
+        "displayName": { "type": "string", "description": "Display name" },
+        "email": { "type": "string", "description": "Email address" },
+        "photoURL": { "type": "string", "description": "Profile photo URL" },
+        "theme": { "type": "string", "enum": ["light", "dark", "system"], "description": "Preferred theme" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account creation date" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Track": {
+      "title": "Track",
+      "description": "Represents a music track",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "artist": { "type": "string" },
+        "album": { "type": "string" },
+        "coverUrl": { "type": "string" },
+        "duration": { "type": "number" },
+        "youtubeId": { "type": "string" },
+        "source": { "type": "string" },
+        "localPath": { "type": "string" }
+      },
+      "required": ["id", "title", "artist"]
+    },
+    "Playlist": {
+      "title": "Playlist",
+      "description": "A collection of tracks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "trackIds": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "ownerId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile documents"
+    },
+    "/users/{userId}/favorites": {
+      "schema": "Track",
+      "description": "User's favorite tracks"
+    },
+    "/users/{userId}/playlists": {
+      "schema": "Playlist",
+      "description": "User's playlists"
+    },
+    "/users/{userId}/localTracks": {
+      "schema": "Track",
+      "description": "Metadata for user's local tracks"
+    }
+  }
+}

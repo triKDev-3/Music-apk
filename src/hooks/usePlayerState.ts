@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import ReactPlayer from 'react-player';
 import { Track } from '../types';
 import { searchYouTube } from '../services/youtubeService';
 import { db } from '../services/localDbService';
@@ -17,6 +16,13 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   const [volume, setVolume]             = useState(0.8);
   const [played, setPlayed]             = useState(0);
   const [duration, setDuration]         = useState(0);
+  const playedRef                       = useRef(0);
+  const durationRef                     = useRef(0);
+  const pendingSeekRef                  = useRef<number | null>(null);
+  const pendingAudioSeekRef             = useRef<number | null>(null);
+  
+  useEffect(() => { playedRef.current = played; }, [played]);
+  useEffect(() => { durationRef.current = duration; }, [duration]);
   const [repeatMode, setRepeatMode]   = useState<'off' | 'all' | 'one'>(() => {
     return (localStorage.getItem('playme_repeat') as any) || 'off';
   });
@@ -119,6 +125,23 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
     if (isClipMode && currentTrack?.youtubeId) {
        setIsLoading(true);
        setHasError(false);
+       
+       // Sync ReactPlayer to current played time when switching to clip mode
+       pendingSeekRef.current = playedRef.current;
+       if (reactPlayerRef.current) {
+         try {
+           reactPlayerRef.current.seekTo(playedRef.current);
+         } catch (e) {
+           console.warn("Could not seek immediately, waiting for onReady");
+         }
+       }
+    } else if (!isClipMode) {
+       // Sync audioRef to current played time when switching back to audio mode
+       pendingAudioSeekRef.current = playedRef.current * durationRef.current;
+       if (audioRef.current && audioRef.current.readyState >= 1) {
+         audioRef.current.currentTime = pendingAudioSeekRef.current;
+         pendingAudioSeekRef.current = null;
+       }
     }
   }, [isClipMode, currentTrack?.youtubeId]);
 
@@ -127,7 +150,7 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
     let activeUrl: string | null = null;
     let isCancelled = false;
 
-    if (currentTrack?.youtubeId === 'local-blob') {
+    if (currentTrack?.id.startsWith('local-')) {
       db.tracks.get(currentTrack.id).then(stored => {
         if (isCancelled) return;
         if (stored?.fileBlob) {
@@ -136,21 +159,20 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
           console.log('[Player] Local Blob URL created');
         }
       });
-    } else if (currentTrack?.youtubeId && !isClipMode) {
-      // Audio YouTube : ReactPlayer hors-écran gère la lecture, pas de proxy stream nécessaire
-      setLocalUrl(null);
+    } else if (currentTrack?.youtubeId) {
+      setLocalUrl(`/api/stream?id=${currentTrack.youtubeId}`);
     } else {
       setLocalUrl(null);
     }
     
     return () => {
       isCancelled = true;
-      if (activeUrl && currentTrack?.youtubeId === 'local-blob') {
+      if (activeUrl && currentTrack?.id.startsWith('local-')) {
          URL.revokeObjectURL(activeUrl);
          console.log('[Player] Local Blob URL revoked');
       }
     };
-  }, [currentTrack?.youtubeId, currentTrack?.id, isClipMode]);
+  }, [currentTrack?.youtubeId, currentTrack?.id]);
 
   // playTrack avec gestion de file d'attente contextuelle
   const playTrack = useCallback((track: Track, customQueue?: Track[]) => {
@@ -179,55 +201,47 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
 
     console.log('[Player] Playing:', track.title, '| ID:', track.youtubeId);
     
+    const finalizePlay = (t: Track) => {
+      setCurrentTrack(t);
+      setIsPlaying(true);
+      setDuration(t.duration || 0);
+      setPlayed(0);
+      setIsLoading(true);
+      setHasError(false);
+
+      setStats(prev => {
+        const safe = prev || { totalTime: 0, playCount: {}, recentlyPlayed: [] };
+        const playCount = { ...safe.playCount, [t.id]: (safe.playCount[t.id] || 0) + 1 };
+        const recentlyPlayed = [t.id, ...safe.recentlyPlayed.filter(id => id !== t.id)].slice(0, 20);
+        return { ...safe, playCount, recentlyPlayed };
+      });
+
+      if ('mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: t.title,
+            artist: t.artist,
+            album: t.album || 'Play Me',
+            artwork: [{ src: t.coverUrl || '', sizes: '512x512', type: 'image/jpeg' }],
+          });
+        } catch {}
+      }
+
+      if (!isClipModeRef.current && audioRef.current) {
+        audioRef.current.playbackRate = playbackRate;
+      }
+    };
+
     // ── Bridge Spotify → YouTube (si youtubeId manquant) ─────────────────────
     if (track.id.startsWith('spotify-') && !track.youtubeId) {
-      const bridge = async () => {
-        setIsLoading(true);
-        const { getYouTubeIdForSpotifyTrack } = await import('../services/spotifyService');
-        const vid = await getYouTubeIdForSpotifyTrack(track);
-        if (vid) {
-          track.youtubeId = vid; // Enrichir l'objet Track localement
-          setCurrentTrack({ ...track, youtubeId: vid });
-          setIsPlaying(true);
-          console.log('[Bridge] Titre Spotify bridgé avec succès.');
-        } else {
-          console.error('[Bridge] Aucun ID YouTube pour ce titre Spotify.');
-          setIsPlaying(false);
-          setIsLoading(false);
-        }
-      };
-      bridge();
+      console.log('[Bridge] Spotify track detected, starting playback with background search.');
+      // On lance la lecture immédiatement avec les métadonnées
+      // Le useEffect de recherche en arrière-plan se chargera de trouver le youtubeId
+      finalizePlay(track);
       return; 
     }
 
-    setCurrentTrack(track);
-    setIsPlaying(true);
-    setDuration(track.duration || 0);
-    setPlayed(0);
-    setIsLoading(true);
-    setHasError(false);
-
-    setStats(prev => {
-      const safe = prev || { totalTime: 0, playCount: {}, recentlyPlayed: [] };
-      const playCount = { ...safe.playCount, [track.id]: (safe.playCount[track.id] || 0) + 1 };
-      const recentlyPlayed = [track.id, ...safe.recentlyPlayed.filter(id => id !== track.id)].slice(0, 20);
-      return { ...safe, playCount, recentlyPlayed };
-    });
-
-    if ('mediaSession' in navigator) {
-      try {
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title: track.title,
-          artist: track.artist,
-          album: track.album || 'Play Me',
-          artwork: [{ src: track.coverUrl || '', sizes: '512x512', type: 'image/jpeg' }],
-        });
-      } catch {}
-    }
-
-    if (!isClipModeRef.current && audioRef.current) {
-      audioRef.current.playbackRate = playbackRate;
-    }
+    finalizePlay(track);
   }, [searchResults, activeQueue, playbackRate]);
 
   const skipToNextImpl = useCallback((manual = true) => {
@@ -281,14 +295,25 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
     const audio = audioRef.current;
     
     // Si nous n'utilisons pas la balise audio HTML5 (ex: mode vidéo ReactPlayer activé ou pas de flux backend)
-    if (!audio || !localUrl) {
-       if (audio && !audio.paused && !localUrl) audio.pause();
+    // On autorise la lecture audio même en mode clip si on n'a pas encore de youtubeId (ex: recherche en cours)
+    // ou si c'est un fichier local (on joue le local en attendant le clip)
+    const hasValidYoutubeId = currentTrack?.youtubeId && currentTrack.youtubeId !== 'local-blob';
+    const shouldPlayAudio = isPlaying && (!isClipMode || !hasValidYoutubeId);
+
+    if (!audio || !localUrl || !shouldPlayAudio) {
+       if (audio && !audio.paused) audio.pause();
        return;
     }
 
     audio.volume = isMuted ? 0 : volume;
 
-    const onCanPlay = () => setIsLoading(false);
+    const onCanPlay = () => {
+      setIsLoading(false);
+      if (pendingAudioSeekRef.current !== null) {
+        audio.currentTime = pendingAudioSeekRef.current;
+        pendingAudioSeekRef.current = null;
+      }
+    };
     const onWaiting = () => setIsLoading(true);
     const onTimeUpdate = () => {
       let d = audio.duration;
@@ -301,9 +326,25 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
       }
     };
 
+    const onError = (e: any) => {
+      console.error("Audio element error:", e);
+      setIsLoading(false);
+      setHasError(true);
+      setIsPlaying(false);
+    };
+
+    const onLoadedMetadata = () => {
+      if (pendingAudioSeekRef.current !== null) {
+        audio.currentTime = pendingAudioSeekRef.current;
+        pendingAudioSeekRef.current = null;
+      }
+    };
+
     audio.addEventListener('canplay', onCanPlay);
+    audio.addEventListener('loadedmetadata', onLoadedMetadata);
     audio.addEventListener('waiting', onWaiting);
     audio.addEventListener('timeupdate', onTimeUpdate);
+    audio.addEventListener('error', onError);
 
     if (isPlaying) {
       if (!localUrl) {
@@ -318,6 +359,7 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
             if (e.name !== 'AbortError') {
               console.error("Local play error:", e);
               setIsPlaying(false);
+              setHasError(true);
             }
           });
         }
@@ -328,12 +370,19 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
 
     return () => { 
       audio.removeEventListener('canplay', onCanPlay);
+      audio.removeEventListener('loadedmetadata', onLoadedMetadata);
       audio.removeEventListener('waiting', onWaiting);
       audio.removeEventListener('timeupdate', onTimeUpdate);
+      audio.removeEventListener('error', onError);
     };
   }, [isPlaying, currentTrack, isMuted, volume, localUrl]);
 
   // ── Volume audio local en temps réel ─────────────────────────────────────
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.playbackRate = playbackRate;
+    }
+  }, [playbackRate]);
 
   useEffect(() => {
     if (sleepTimer === null) return;
@@ -361,6 +410,14 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
       prev.includes(trackId) ? prev.filter(id => id !== trackId) : [...prev, trackId]
     ), []);
 
+  const handleReady = useCallback(() => {
+    setIsLoading(false);
+    if (pendingSeekRef.current !== null && reactPlayerRef.current) {
+      reactPlayerRef.current.seekTo(pendingSeekRef.current);
+      pendingSeekRef.current = null;
+    }
+  }, []);
+
   const handleTimeUpdate = useCallback((state: any) => {
     // ReactPlayer onProgress returns { played, playedSeconds, loaded, loadedSeconds }
     if (state && typeof state.played === 'number') {
@@ -382,7 +439,7 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
 
   const handleSeekChange = useCallback((val: number) => {
     setPlayed(val);
-    if (audioRef.current && !isClipModeRef.current) {
+    if (!isClipModeRef.current && audioRef.current) {
       audioRef.current.currentTime = val * audioRef.current.duration;
     } else if (reactPlayerRef.current) {
       // react-player uses seekTo(fraction)
@@ -398,8 +455,84 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   }, []);
 
   const youtubeId = useMemo(() => {
-    return currentTrack && !currentTrack.id.startsWith('local-') ? currentTrack.youtubeId : null;
+    return currentTrack ? currentTrack.youtubeId : null;
   }, [currentTrack]);
+
+  // Background clip search for local tracks or tracks without youtubeId
+  useEffect(() => {
+    if (!currentTrack) return;
+    
+    // On cherche un clip si :
+    // 1. On n'a pas de youtubeId du tout (ex: Spotify, local)
+    // 2. On a un youtubeId mais on veut s'assurer d'avoir le "Clip Officiel" pour le mode vidéo
+    const needsAudioId = !currentTrack.youtubeId || currentTrack.youtubeId === 'local-blob';
+    
+    const fetchClip = async () => {
+      try {
+        let audioId = currentTrack.youtubeId;
+        let foundOfficial = false;
+
+        // 1. Recherche initiale (Audio + Clip potentiel)
+        console.log('[Background Search] Searching for:', currentTrack.title);
+        const query = `${currentTrack.artist} ${currentTrack.title}`;
+        const ytResults = await searchYouTube(query);
+        
+        if (ytResults && ytResults.length > 0) {
+          const topResult = ytResults[0];
+          audioId = topResult.youtubeId;
+          
+          // On vérifie si le premier résultat est déjà un clip officiel
+          const titleLower = topResult.title.toLowerCase();
+          foundOfficial = titleLower.includes('official') || titleLower.includes('clip') || titleLower.includes('video');
+
+          // Mise à jour immédiate pour l'audio (si on n'avait rien ou si on avait local-blob)
+          setCurrentTrack(prev => {
+            if (prev && prev.id === currentTrack.id && (!prev.youtubeId || prev.youtubeId === 'local-blob')) {
+              console.log('[Background Search] Found initial ID for', currentTrack.title, ':', audioId);
+              return { 
+                ...prev, 
+                youtubeId: audioId,
+                coverUrl: topResult.coverUrl || prev.coverUrl,
+                duration: topResult.duration || prev.duration
+              };
+            }
+            return prev;
+          });
+        }
+
+        // 2. Si on n'a pas encore trouvé de clip officiel, on fait une recherche plus spécifique
+        if (!foundOfficial) {
+          console.log('[Background Search] Searching for official clip for:', currentTrack.title);
+          const clipQuery = `${currentTrack.artist} ${currentTrack.title} official video clip`;
+          const clipResults = await searchYouTube(clipQuery);
+          
+          if (clipResults && clipResults.length > 0) {
+            const clipResult = clipResults[0];
+            
+            setCurrentTrack(prev => {
+              if (prev && prev.id === currentTrack.id) {
+                // On met à jour si l'ID est différent (on a trouvé mieux)
+                if (prev.youtubeId !== clipResult.youtubeId) {
+                  console.log('[Background Search] Found better official clip for', currentTrack.title, ':', clipResult.youtubeId);
+                  return { 
+                    ...prev, 
+                    youtubeId: clipResult.youtubeId,
+                    coverUrl: clipResult.coverUrl || prev.coverUrl,
+                    duration: clipResult.duration || prev.duration
+                  };
+                }
+              }
+              return prev;
+            });
+          }
+        }
+      } catch (err) {
+        console.error('[Background Search] Failed to find clip:', err);
+      }
+    };
+
+    fetchClip();
+  }, [currentTrack?.id]);
 
   return {
     currentTrack, isPlaying, setIsPlaying,
@@ -418,7 +551,7 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
     favorites,    stats,
     playerRef,    reactPlayerRef, audioRef,
     playTrack,    toggleFavorite,
-    handleTimeUpdate, handleDurationChange, handleSeekChange,
+    handleTimeUpdate, handleDurationChange, handleSeekChange, handleReady,
     formatTime,
     skipToNext: skipToNextImpl,
     skipToPrev: skipToPrevImpl,

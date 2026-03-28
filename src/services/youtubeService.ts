@@ -57,7 +57,7 @@ export async function searchYouTube(query: string): Promise<Track[]> {
   }
 
   try {
-    const params = `part=snippet&q=${encodeURIComponent(query)}&type=video&videoCategoryId=10&maxResults=50`;
+    const params = `part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=50`;
     const searchUrl = getApiUrl('search', params);
 
     const res = await fetch(searchUrl, { headers: getHeaders() });
@@ -121,9 +121,17 @@ async function fetchFromBackend(query: string): Promise<Track[]> {
         console.log(`[YouTube] Recherche via Backend API pour: "${query}"`);
         const res = await fetch(`/api/search/youtube?q=${encodeURIComponent(query)}`);
         if (res.ok) {
-            const data = await res.json();
-            const results = Array.isArray(data) ? data : (data.items || []);
-            if (results.length > 0) return results;
+            const contentType = res.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                const data = await res.json();
+                const results = Array.isArray(data) ? data : (data.items || []);
+                if (results.length > 0) return results;
+            } else {
+                const text = await res.text();
+                console.error(`[YouTube] Backend returned non-JSON response (${contentType}):`, text.substring(0, 100));
+            }
+        } else {
+            console.error(`[YouTube] Backend search failed with status ${res.status}`);
         }
         console.warn(`[YouTube] Backend indisponible pour "${query}", cascade vers Gemini.`);
         return []; // Retourner [] pour déclencher le fallback Gemini dans App.tsx
@@ -192,7 +200,7 @@ export async function searchLiveMusic(): Promise<Track[]> {
   if (!_oauthToken && !YOUTUBE_API_KEY) return [];
 
   try {
-    const params = `part=snippet&type=video&eventType=live&videoCategoryId=10&maxResults=8`;
+    const params = `part=snippet&type=video&eventType=live&maxResults=8`;
     const searchUrl = getApiUrl('search', params);
 
     const res = await fetch(searchUrl, { headers: getHeaders() });

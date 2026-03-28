@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import ReactPlayer from 'react-player';
 import { 
   ChevronDown, ChevronRight, ChevronLeft, Plus, MoreHorizontal, Share2, 
   SkipBack, SkipForward, Play, Pause, 
@@ -106,18 +105,18 @@ export function NowPlayingView({
       <div className="absolute inset-0 overflow-hidden">
         <motion.div 
           key={track.coverUrl}
-          initial={{ opacity: 0, scale: 1.25 }}
-          animate={{ opacity: 0.5, scale: 1.15 }}
-          transition={{ duration: 2 }}
+          initial={{ opacity: 0, scale: 1.1 }}
+          animate={{ opacity: 0.4, scale: 1 }}
+          transition={{ duration: 1.5 }}
           className="absolute inset-0"
         >
           <img 
             src={track.coverUrl} 
-            className="w-full h-full object-cover blur-[100px] saturate-150 brightness-50"
+            className="w-full h-full object-cover blur-[60px] saturate-125 brightness-[0.3]"
             alt=""
           />
         </motion.div>
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-black/90" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/40 to-black/95" />
       </div>
 
       {/* Header */}
@@ -363,29 +362,28 @@ export function NowPlayingView({
                      <span className="px-2 py-0.5 bg-red-500 text-white text-[10px] font-black uppercase rounded animate-pulse">Live</span>
                    )}
                  </div>
-                <div className="marquee-container mb-3 w-full">
+                <div className="mb-1 w-full overflow-hidden">
                   <motion.h1 
                     key={track.title}
-                    initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }}
-                    className="text-4xl md:text-7xl font-black tracking-tighter inline-block animate-marquee"
+                    initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+                    className="text-4xl md:text-6xl font-black tracking-tighter leading-tight"
                   >
-                    {track.title} &nbsp; • &nbsp; {track.title} &nbsp; • &nbsp; {track.title} &nbsp; • &nbsp;
+                    {track.title}
                   </motion.h1>
                 </div>
-                <div className="marquee-container w-full">
+                <div className="w-full overflow-hidden">
                   <motion.p 
                     key={track.artist}
-                    initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 0.6 }}
-                    className="text-xl md:text-2xl font-bold text-white/60 inline-block animate-marquee"
-                    style={{ animationDelay: '2s' }}
+                    initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 0.7 }}
+                    className="text-xl md:text-2xl font-bold text-white/70"
                   >
-                    {track.artist} &nbsp; • &nbsp; {track.artist} &nbsp; • &nbsp; {track.artist} &nbsp; • &nbsp;
+                    {track.artist}
                   </motion.p>
                 </div>
               </div>
               <button 
                 onClick={() => toggleFavorite(track.id)}
-                className="p-4 rounded-full bg-white/5 hover:bg-white/10 transition-all active:scale-90"
+                className="p-4 rounded-full bg-white/10 hover:bg-white/20 transition-all active:scale-90 shadow-xl"
               >
                 <Heart size={32} fill={isFav ? '#8F00FF' : 'none'} color={isFav ? '#8F00FF' : 'white'} />
               </button>

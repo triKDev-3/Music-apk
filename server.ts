@@ -1,91 +1,21 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
-import Database from "better-sqlite3";
 import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenAI, Type } from "@google/genai";
+import { initDatabase, getCachedSearch, setCachedSearch, isUsingMemoryCache } from "./server/db.ts";
 import "dotenv/config";
 import { spawn } from "child_process";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize SQLite Database with fallback
-let db: any;
-let useMemoryCache = false;
-try {
-  const dbPath = process.env.VERCEL ? path.join("/tmp", "cache.db") : path.join(__dirname, "cache.db");
-  db = new Database(dbPath);
-
-  // Create tables if they don't exist
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS search_cache (
-      query TEXT PRIMARY KEY,
-      results TEXT,
-      timestamp INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS gemini_cache (
-      query TEXT PRIMARY KEY,
-      results TEXT,
-      timestamp INTEGER
-    );
-  `);
-  console.log("SQLite database initialized successfully.");
-} catch (error) {
-  console.error("Failed to initialize SQLite database, falling back to memory cache:", error);
-  useMemoryCache = true;
-}
+initDatabase();
 
 const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
-const memoryCache: Record<string, { results: any, timestamp: number }> = {};
-
-// Helper functions for cache
-const getCachedSearch = (query: string, table: string) => {
-  const cacheKey = `${table}:${query}`;
-  if (useMemoryCache) {
-    const entry = memoryCache[cacheKey];
-    if (entry && (Date.now() - entry.timestamp < CACHE_EXPIRY)) {
-      return entry.results;
-    }
-    return null;
-  }
-
-  try {
-    const stmt = db.prepare(`SELECT * FROM ${table} WHERE query = ?`);
-    const row = stmt.get(query) as any;
-    if (row) {
-      if (Date.now() - row.timestamp < CACHE_EXPIRY) {
-        return JSON.parse(row.results);
-      } else {
-        db.prepare(`DELETE FROM ${table} WHERE query = ?`).run(query);
-      }
-    }
-  } catch (err) {
-    console.error("Cache read error:", err);
-  }
-  return null;
-};
-
-const setCachedSearch = (query: string, results: any, table: string) => {
-  const cacheKey = `${table}:${query}`;
-  if (useMemoryCache) {
-    memoryCache[cacheKey] = { results, timestamp: Date.now() };
-    return;
-  }
-
-  try {
-    const stmt = db.prepare(`
-      INSERT OR REPLACE INTO ${table} (query, results, timestamp)
-      VALUES (?, ?, ?)
-    `);
-    stmt.run(query, JSON.stringify(results), Date.now());
-  } catch (err) {
-    console.error("Cache write error:", err);
-  }
-};
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3001;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: "50mb" }));
 
@@ -172,71 +102,81 @@ app.get("/api/spotify/token", async (req, res) => {
   }
 });
 
-// YouTube Stream Proxy (Optimisé pour Vercel via ytdl-core)
+// YouTube Stream Proxy (Optimisé via ytdl-core)
 app.get("/api/stream", async (req, res) => {
   const id = req.query.id as string;
   if (!id) return res.status(400).send("ID is required");
 
-  // On privilégie ytdl-core sur Vercel car yt-dlp (binaire) est souvent absent
-  if (process.env.VERCEL) {
-    console.log(`[Stream] Streaming via ytdl-core sur Vercel pour: ${id}`);
-    try {
-      const { default: ytdl } = await import("@distube/ytdl-core");
-      const url = `https://www.youtube.com/watch?v=${id}`;
-      
-      res.setHeader("Content-Type", "audio/mpeg");
-      // ytdl-core stream directly to response
-      const stream = ytdl(url, {
-        filter: "audioonly",
-        quality: "highestaudio",
-        highWaterMark: 1 << 25
-      });
-      
-      stream.pipe(res);
-      
-      stream.on("error", (err) => {
-        console.error(`[ytdl-core error]`, err);
-        if (!res.headersSent) res.status(500).send("Stream error");
-        else res.end();
-      });
+  console.log(`[Stream] Streaming via ytdl-core pour: ${id}`);
+  
+  const startYtDlpFallback = () => {
+    console.log(`[Stream] Fallback vers yt-dlp pour: ${id}`);
+    const ytDlp = spawn("yt-dlp", [
+      "-f", "bestaudio",
+      "-g",
+      "--quiet",
+      "--no-playlist",
+      `https://www.youtube.com/watch?v=${id}`
+    ]);
 
-      req.on("close", () => {
-        if (stream.destroy) stream.destroy();
-      });
+    let streamUrl = "";
+    ytDlp.stdout.on("data", (data) => {
+      streamUrl += data.toString();
+    });
 
-      return;
-    } catch (error) {
-      console.error("[Stream] Échec ytdl-core:", error);
-      return res.status(500).json({ error: "Stream extraction failed" });
-    }
+    ytDlp.on("close", (code) => {
+      if (code === 0 && streamUrl.trim()) {
+        res.redirect(streamUrl.trim());
+      } else {
+        if (!res.headersSent) res.status(500).send("Stream fallback extraction failed");
+      }
+    });
+
+    ytDlp.on("error", (err) => {
+      console.error("[Stream] yt-dlp non disponible ou erreur:", err);
+      if (!res.headersSent) res.status(500).send("Stream extraction failed");
+    });
+
+    req.on("close", () => {
+      ytDlp.kill();
+    });
+  };
+
+  try {
+    const { default: ytdl } = await import("@distube/ytdl-core");
+    const url = `https://www.youtube.com/watch?v=${id}`;
+    
+    const stream = ytdl(url, {
+      filter: "audioonly",
+      quality: "highestaudio",
+      highWaterMark: 1 << 25
+    });
+    
+    let hasError = false;
+    stream.on("error", (err) => {
+      console.error(`[ytdl-core error]`, err);
+      hasError = true;
+      if (!res.headersSent) {
+        startYtDlpFallback();
+      } else {
+        res.end();
+      }
+    });
+
+    stream.on("info", () => {
+      if (!hasError) {
+        res.setHeader("Content-Type", "audio/mpeg");
+        stream.pipe(res);
+      }
+    });
+
+    req.on("close", () => {
+      if (stream.destroy) stream.destroy();
+    });
+  } catch (error) {
+    console.error("[Stream] Échec initialisation ytdl-core:", error);
+    startYtDlpFallback();
   }
-
-  // Fallback local avec yt-dlp pour la performance/vitesse si disponible
-  console.log(`[Stream] Extraction via yt-dlp local pour: ${id}`);
-  const ytDlp = spawn("yt-dlp", [
-    "-f", "bestaudio",
-    "-g",
-    "--quiet",
-    "--no-playlist",
-    `https://www.youtube.com/watch?v=${id}`
-  ]);
-
-  let streamUrl = "";
-  ytDlp.stdout.on("data", (data) => {
-    streamUrl += data.toString();
-  });
-
-  ytDlp.on("close", (code) => {
-    if (code === 0 && streamUrl.trim()) {
-      res.redirect(streamUrl.trim());
-    } else {
-      if (!res.headersSent) res.status(500).send("Stream fallback extraction failed");
-    }
-  });
-
-  req.on("close", () => {
-    ytDlp.kill();
-  });
 });
 
 // YouTube Search API
@@ -244,7 +184,7 @@ app.get("/api/search/youtube", async (req, res) => {
   const query = req.query.q as string;
   if (!query) return res.status(400).json({ error: "Query is required" });
 
-  const cached = getCachedSearch(query, "search_cache");
+  const cached = await getCachedSearch(query, "search_cache");
   if (cached) {
     console.log(`[Cache Hit] YouTube: ${query}`);
     return res.json(cached);
@@ -257,11 +197,11 @@ app.get("/api/search/youtube", async (req, res) => {
   }
 
   try {
-    const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&videoCategoryId=10&maxResults=20&key=${API_KEY}`);
+    const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=20&key=${API_KEY}`);
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error("YouTube API full error:", JSON.stringify(errorData, null, 2));
-      throw new Error(errorData.error?.message || "Failed to search YouTube");
+      console.error("YouTube API error, falling back to yt-dlp:", JSON.stringify(errorData, null, 2));
+      throw new Error("API_KEY_INVALID");
     }
 
     const data = await response.json();
@@ -270,17 +210,57 @@ app.get("/api/search/youtube", async (req, res) => {
       title: item.snippet.title,
       artist: item.snippet.channelTitle,
       album: "YouTube Video",
-      thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.default?.url,
+      coverUrl: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.default?.url,
       duration: 0,
       youtubeId: item.id.videoId,
       source: "youtube"
     }));
 
-    setCachedSearch(query, results, "search_cache");
+    await setCachedSearch(query, results, "search_cache");
     res.json(results);
   } catch (error: any) {
-    console.error("YouTube search error:", error);
-    res.status(500).json({ error: error.message || "Failed to search YouTube" });
+    console.warn("[YouTube Search] Fallback to yt-dlp due to:", error.message);
+    
+    // Fallback to yt-dlp search if API key fails
+    if (process.env.VERCEL) {
+      return res.status(500).json({ error: "YouTube API failed and yt-dlp is not available on Vercel." });
+    }
+
+    const ytDlp = spawn("yt-dlp", [
+      "ytsearch10:" + query,
+      "--dump-json",
+      "--no-playlist",
+      "--flat-playlist"
+    ]);
+
+    let output = "";
+    ytDlp.stdout.on("data", (data) => output += data.toString());
+    
+    ytDlp.on("close", async (code) => {
+      try {
+        const lines = output.trim().split("\n").filter(l => l.trim().length > 0);
+        const results = lines.map(line => {
+          try {
+            const item = JSON.parse(line);
+            return {
+              id: item.id,
+              title: item.title,
+              artist: item.uploader || 'YouTube',
+              album: 'YouTube Music',
+              coverUrl: `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`,
+              duration: item.duration || 0,
+              youtubeId: item.id,
+              source: 'youtube'
+            };
+          } catch { return null; }
+        }).filter(r => !!r);
+        
+        await setCachedSearch(query, results, "search_cache");
+        res.json(results);
+      } catch (err) {
+        res.status(500).json({ error: "Search failed" });
+      }
+    });
   }
 });
 
@@ -290,7 +270,7 @@ app.post("/api/search/gemini", async (req, res) => {
   if (!query) return res.status(400).json({ error: "Query is required" });
 
   const cacheKey = `${type}:${query}`;
-  const cached = getCachedSearch(cacheKey, "gemini_cache");
+  const cached = await getCachedSearch(cacheKey, "gemini_cache");
   if (cached) {
     console.log(`[Cache Hit] Gemini (${type}): ${query}`);
     return res.json(cached);
@@ -313,7 +293,7 @@ app.post("/api/search/gemini", async (req, res) => {
     }
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-3-flash-preview",
       contents,
       config: {
         responseMimeType: "application/json",
@@ -348,7 +328,7 @@ app.post("/api/search/gemini", async (req, res) => {
         source: "youtube",
       }));
       
-      setCachedSearch(cacheKey, results, "gemini_cache");
+      await setCachedSearch(cacheKey, results, "gemini_cache");
       return res.json(results);
     }
     res.json([]);
@@ -371,7 +351,7 @@ app.post("/api/recognize", async (req, res) => {
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-3-flash-preview",
       contents: {
         parts: [
           {
@@ -423,7 +403,7 @@ app.post("/api/lyrics", async (req, res) => {
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-3-flash-preview",
       contents: `Write the lyrics for the song "${track.title}" by "${track.artist}". Format it as a simple text with line breaks. If you don't know the exact lyrics, provide a poetic interpretation or a placeholder text.`,
     });
     res.json({ lyrics: response.text || "Lyrics not found." });
@@ -450,7 +430,17 @@ if (!process.env.VERCEL) {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`
+🚀 Server is running!
+--------------------------------------------------
+📡 URL: http://localhost:${PORT}
+🌍 Mode: ${process.env.NODE_ENV || 'development'}
+📦 Environment: ${process.env.VERCEL ? 'Vercel' : 'Local/Container'}
+🗄️  Database: ${isUsingMemoryCache() ? 'Memory Cache (Fallback)' : 'PostgreSQL (Neon)'}
+🔑 YouTube API: ${!!(process.env.VITE_YOUTUBE_API_KEY || process.env.YOUTUBE_API_KEY) ? 'Configured' : 'Missing'}
+🔑 Gemini API: ${!!(process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY) ? 'Configured' : 'Missing'}
+--------------------------------------------------
+    `);
   });
 }
 

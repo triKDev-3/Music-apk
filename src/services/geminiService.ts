@@ -1,10 +1,19 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 import { Track } from "../types";
 import { getMockResults } from "./youtubeService";
 
+// Use process.env.GEMINI_API_KEY for free models
 const ai = new GoogleGenAI({ 
-  apiKey: import.meta.env.VITE_GEMINI_API_KEY || "",
+  apiKey: process.env.GEMINI_API_KEY || "",
 });
+
+/**
+ * Creates a new instance of GoogleGenAI using the user-selected API key.
+ * Required for Lyria and other paid models.
+ */
+const getPaidAI = () => {
+  return new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+};
 
 // Base de données de chansons réelles pour enrichir les résultats Gemini
 const REAL_TRACKS_BY_MOOD: Record<string, Track[]> = {
@@ -40,7 +49,7 @@ const REAL_TRACKS_BY_MOOD: Record<string, Track[]> = {
 export async function searchMusic(query: string): Promise<Track[]> {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-3-flash-preview",
       contents: [{
         role: "user",
         parts: [{
@@ -63,7 +72,7 @@ export async function searchMusic(query: string): Promise<Track[]> {
       config: { responseMimeType: "application/json" }
     });
 
-    let text = (response as any).text?.() ?? (response as any).candidates?.[0]?.content?.parts?.[0]?.text;
+    let text = response.text;
     if (!text) return getMockResults(query);
     
     // Nettoyage des balises Markdown (ex: ```json ... ```) 
@@ -93,7 +102,7 @@ export async function getMoodPlaylists(mood: string): Promise<Track[]> {
   // Essayer d'enrichir avec Gemini
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-3-flash-preview",
       contents: [{
         role: "user",
         parts: [{
@@ -106,7 +115,7 @@ export async function getMoodPlaylists(mood: string): Promise<Track[]> {
       config: { responseMimeType: "application/json" }
     });
 
-    let text = (response as any).text?.() ?? (response as any).candidates?.[0]?.content?.parts?.[0]?.text;
+    let text = response.text;
     if (text) {
       text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       const parsed = JSON.parse(text);
@@ -135,7 +144,7 @@ export async function getMoodPlaylists(mood: string): Promise<Track[]> {
   return realTracks;
 }
 
-/** Récupère les paroles d'une chanson via Gemini */
+/** Récupère les paroles d'une chanson via Gemini avec Search Grounding */
 export async function getLyrics(title: string, artist: string): Promise<string> {
   const prompt = `Trouve les paroles complètes de la chanson "${title}" par "${artist}". 
   Réponds uniquement avec le texte des paroles, sans introduction ni conclusion. 
@@ -143,14 +152,104 @@ export async function getLyrics(title: string, artist: string): Promise<string> 
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: [{ role: "user", parts: [{ text: prompt }] }]
+      model: "gemini-3-flash-preview",
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: {
+        tools: [{ googleSearch: {} }]
+      }
     });
     
-    const text = (response as any).text?.() ?? (response as any).candidates?.[0]?.content?.parts?.[0]?.text;
+    const text = response.text;
     return text || "Paroles non disponibles.";
   } catch (err) {
     console.error('[Gemini] Lyrics error:', err);
     return "Erreur lors du chargement des paroles.";
+  }
+}
+
+/** 
+ * Génère de la musique via Lyria 
+ * @param prompt Description de la musique à générer
+ * @param isFullLength Si vrai, utilise lyria-3-pro-preview (full track), sinon lyria-3-clip-preview (30s)
+ */
+export async function generateMusic(prompt: string, isFullLength: boolean = false): Promise<{ url: string, lyrics?: string }> {
+  const paidAi = getPaidAI();
+  const model = isFullLength ? "lyria-3-pro-preview" : "lyria-3-clip-preview";
+
+  try {
+    const response = await paidAi.models.generateContentStream({
+      model: model,
+      contents: prompt,
+    });
+
+    let audioBase64 = "";
+    let lyrics = "";
+    let mimeType = "audio/wav";
+
+    for await (const chunk of response) {
+      const parts = chunk.candidates?.[0]?.content?.parts;
+      if (!parts) continue;
+      for (const part of parts) {
+        if (part.inlineData?.data) {
+          if (!audioBase64 && part.inlineData.mimeType) {
+            mimeType = part.inlineData.mimeType;
+          }
+          audioBase64 += part.inlineData.data;
+        }
+        if (part.text && !lyrics) {
+          lyrics = part.text;
+        }
+      }
+    }
+
+    if (!audioBase64) throw new Error("Aucun audio généré");
+
+    // Décodage base64 en Blob
+    const binary = atob(audioBase64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+
+    return { url, lyrics };
+  } catch (err) {
+    console.error('[Lyria] Music generation error:', err);
+    throw err;
+  }
+}
+
+/**
+ * Analyse une image pour suggérer de la musique (Multimodal)
+ */
+export async function suggestMusicFromImage(base64Image: string, mimeType: string): Promise<Track[]> {
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: {
+        parts: [
+          { text: "Analyse cette image et suggère 5 chansons réelles qui correspondent à l'ambiance visuelle. Retourne UNIQUEMENT un tableau JSON avec title, artist, album, youtubeId." },
+          { inlineData: { data: base64Image, mimeType } }
+        ]
+      },
+      config: { responseMimeType: "application/json" }
+    });
+
+    let text = response.text;
+    if (!text) return [];
+    text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const parsed = JSON.parse(text);
+    
+    return (Array.isArray(parsed) ? parsed : []).map((t: any, index: number) => ({
+      ...t,
+      id: `ai-img-${index}`,
+      coverUrl: t.youtubeId ? `https://i.ytimg.com/vi/${t.youtubeId}/hqdefault.jpg` : 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=400&fit=crop',
+      duration: 180,
+      source: 'youtube'
+    }));
+  } catch (err) {
+    console.error('[Gemini] Image analysis error:', err);
+    return [];
   }
 }

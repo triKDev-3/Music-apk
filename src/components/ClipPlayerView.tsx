@@ -155,6 +155,30 @@ export function ClipPlayerView({
         )}
       </AnimatePresence>
 
+      {/* Video Fallback (Album Art) */}
+      <AnimatePresence>
+        {(!isPlaying || isLoading || !track.youtubeId) && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-0 flex items-center justify-center"
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-3xl z-0" />
+            <motion.img 
+              src={track.coverUrl}
+              alt={track.title}
+              className="relative z-10 w-64 h-64 md:w-96 md:h-96 object-cover rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.8)] border border-white/10"
+              animate={{ 
+                scale: isPlaying ? [1, 1.02, 1] : 1,
+                rotate: isPlaying ? [0, 1, 0, -1, 0] : 0
+              }}
+              transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Center Controls */}
       <AnimatePresence>
         {showControls && (

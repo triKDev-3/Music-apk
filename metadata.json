@@ -1,7 +1,5 @@
 {
-  "name": "Play Me",
-  "description": "A premium music player with intelligent playlists, mood-based discovery, and seamless audio-to-video switching.",
-  "requestFramePermissions": [
-    "microphone"
-  ]
+  "name": "Play Me - Music & AI Studio",
+  "description": "A powerful music player with AI-powered features: music generation, smart search, and audio recognition. Supports local files, YouTube, and Spotify.",
+  "requestFramePermissions": ["microphone", "camera"]
 }

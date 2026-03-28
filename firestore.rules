@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid is string && data.uid == request.auth.uid &&
+             isValidEmail(data.email);
+    }
+
+    function isValidTrack(data) {
+      return data.keys().hasAll(['id', 'title', 'artist']) &&
+             data.id is string && data.title is string && data.artist is string;
+    }
+
+    function isValidPlaylist(data) {
+      return data.keys().hasAll(['id', 'name', 'ownerId']) &&
+             data.id is string && data.name is string && data.ownerId == request.auth.uid;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data);
+      allow delete: if isOwner(userId);
+
+      // User subcollections
+      match /favorites/{trackId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidTrack(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /playlists/{playlistId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidPlaylist(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+
+      match /localTracks/{trackId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidTrack(request.resource.data);
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

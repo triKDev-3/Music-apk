@@ -4,7 +4,7 @@
  */
 
 import * as React from 'react';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, Component } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, AlertCircle, Play, Maximize2, X } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -22,6 +22,7 @@ import { SearchView }     from './views/SearchView';
 import { LibraryView }    from './views/LibraryView';
 import { NowPlayingView } from './views/NowPlayingView';
 import { PlaylistView }   from './views/PlaylistView';
+import { AIStudioView }   from './views/AIStudioView';
 import { ClipPlayerView } from './components/ClipPlayerView';
 import { RecognitionModal } from './components/RecognitionModal';
 import { Dialog }         from './components/ui/Dialog';
@@ -35,6 +36,74 @@ import { GoogleAuthProvider } from 'firebase/auth';
 import { Track, Playlist, View, Theme }  from './types';
 import { INITIAL_TRACKS } from './data/initialTracks';
 
+const Player = React.forwardRef<any, any>((props, ref) => {
+  const { onDuration, onBuffer, onBufferEnd, ...rest } = props;
+  const RP = ReactPlayer as any;
+  return (
+    <RP
+      ref={ref}
+      {...rest}
+      onDuration={onDuration}
+      onBuffer={onBuffer}
+      onBufferEnd={onBufferEnd}
+    />
+  );
+});
+Player.displayName = 'Player';
+
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: any;
+}
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: any): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  override componentDidCatch(error: any, errorInfo: any) {
+    console.error("Uncaught error:", error, errorInfo);
+  }
+
+  override render() {
+    if (this.state.hasError) {
+      let errorMessage = "Une erreur inattendue s'est produite.";
+      try {
+        const parsedError = JSON.parse(this.state.error.message);
+        if (parsedError.error) {
+          errorMessage = `Erreur Firestore (${parsedError.operationType}) : ${parsedError.error}`;
+        }
+      } catch (e) {
+        errorMessage = this.state.error.message || errorMessage;
+      }
+
+      return (
+        <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Oups ! Quelque chose s'est mal passé.</h1>
+          <p className="text-gray-400 mb-6 max-w-md">{errorMessage}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-2 bg-white text-black rounded-full font-medium hover:bg-gray-200 transition-colors"
+          >
+            Recharger l'application
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 export default function App() {
   const [theme, setTheme]             = useState<Theme>('dark');
@@ -374,39 +443,32 @@ export default function App() {
   };
 
   const handleRecognitionResult = async (track: Track) => {
-    player.setIsLoading(true);
+    // 1. Lancer la lecture immédiatement avec les métadonnées de base
+    // Le hook usePlayerState se chargera de trouver un ID YouTube en arrière-plan pour l'audio
+    player.playTrack(track);
+    setIsNowPlayingOpen(true);
+
+    // 2. Rechercher un clip officiel en arrière-plan pour enrichir l'expérience si l'utilisateur bascule en mode Clip
     try {
-      // 1. Rechercher un clip officiel pour la chanson identifiée sur YouTube
-      // On combine l'artiste, le titre et des mots-clés pour optimiser le résultat
       const query = `${track.artist} ${track.title} official video clip`;
       const ytResults = await searchYouTube(query);
       
-      let finalTrack = track;
       if (ytResults && ytResults.length > 0) {
-        // On prend le premier résultat car c'est normalement le plus pertinent
         const topResult = ytResults[0];
-        finalTrack = {
-          ...track,
-          youtubeId: topResult.youtubeId,
-          coverUrl: topResult.coverUrl,
-          duration: topResult.duration,
-          album: topResult.album || track.album,
-          artist: topResult.artist || track.artist
-        };
+        // On met à jour le morceau en cours si c'est toujours le même
+        if (player.currentTrack?.id === track.id) {
+          player.playTrack({
+            ...track,
+            youtubeId: topResult.youtubeId,
+            coverUrl: topResult.coverUrl,
+            duration: topResult.duration,
+            album: topResult.album || track.album,
+            artist: topResult.artist || track.artist
+          });
+        }
       }
-
-      // 2. Lancer la lecture en mode "Clip" automatique pour cette découverte
-      player.playTrack(finalTrack);
-      player.setIsClipMode(true);
-      setIsNowPlayingOpen(true);
-
     } catch (err) {
-      console.error('[Shazam] Erreur recherche clip:', err);
-      // Fallback: Jouer ce qu'on avait au départ
-      player.playTrack(track);
-      setIsNowPlayingOpen(true);
-    } finally {
-      player.setIsLoading(false);
+      console.error('[Shazam] Erreur recherche clip en arrière-plan:', err);
     }
   };
 
@@ -495,14 +557,12 @@ export default function App() {
   }, [localTracks]);
 
   // ── Arrière-plan ──────────────────────────────────────────────────────────
-  const mainBg = theme === 'dark'
-    ? 'linear-gradient(to bottom, #18181b, #000000)'
-    : 'linear-gradient(to bottom, #f4f4f5, #ffffff)';
+  const mainBg = 'var(--bg-base)';
 
   // ── Rendu ─────────────────────────────────────────────────────────────────
   return (
-    <>
-      <div className="relative flex h-[100dvh] w-screen overflow-hidden font-sans bg-black">
+    <ErrorBoundary>
+      <div className="relative flex h-[100dvh] w-screen overflow-hidden font-sans bg-[var(--bg-base)] text-[var(--text-primary)]">
 
         {/* ── Nouveau Loader Premium (Remplace le Splash Screen bloquant) ── */}
         <AnimatePresence>
@@ -625,11 +685,11 @@ export default function App() {
              </button>
           )}
         {player.youtubeId && hasStarted && (
-          <ReactPlayer
+          <Player
             key={`clip-${player.youtubeId}`}
-            ref={player.reactPlayerRef as any}
-            {...{url: `https://www.youtube.com/watch?v=${player.youtubeId}`} as any}
-            playing={player.isPlaying}
+            ref={player.reactPlayerRef}
+            url={`https://www.youtube.com/watch?v=${player.youtubeId}`}
+            playing={player.isPlaying && player.isClipMode}
             controls={true}
             volume={player.isMuted ? 0 : player.volume}
             muted={false}
@@ -645,7 +705,10 @@ export default function App() {
                 origin: window.location.origin
               }
             }}
-            onReady={() => console.log('[ReactPlayer] Ready:', player.youtubeId)}
+            onReady={() => {
+              console.log('[ReactPlayer] Ready:', player.youtubeId);
+              player.handleReady();
+            }}
             onStart={() => {
               console.log('[ReactPlayer] Started:', player.youtubeId);
               player.setIsLoading(false);
@@ -654,7 +717,7 @@ export default function App() {
               console.log('[ReactPlayer] Play Event');
               player.setIsLoading(false);
             }}
-            onError={(e) => {
+            onError={(e: any) => {
               console.error('[ReactPlayer] Error for ID:', player.youtubeId, e);
               player.setIsLoading(false);
               player.setHasError(true);
@@ -776,125 +839,130 @@ export default function App() {
 
         {/* ── UI principale ── */}
         {!player.isClipMode && (
-          <div className="relative z-10 flex h-full w-full">
-            <Sidebar
-              currentView={currentView}
-              setCurrentView={setCurrentView}
-              playlists={playlists}
-              createPlaylist={() => {
-                setDialog({
-                  isOpen: true,
-                  title: 'Nouvelle Playlist',
-                  message: 'Entrez le nom de votre nouvelle playlist :',
-                  type: 'prompt',
-                  defaultValue: `Playlist #${playlists.length + 1}`,
-                  onConfirm: (name) => {
-                    if (name) setPlaylists(prev => [...prev, { id: Math.random().toString(36), name, description: '', tracks: [] }]);
-                  }
-                });
-              }}
-               isOpen={isSidebarOpen}
-               onClose={() => setIsSidebarOpen(false)}
-               onPlaylistClick={(id) => {
-                 setSelectedPlaylistId(id);
-                 setCurrentView('playlist');
-                 setIsSidebarOpen(false);
-               }}
+          <div className="relative z-10 flex flex-col h-full w-full">
+            <div className="flex-1 flex overflow-hidden">
+              <Sidebar
+                currentView={currentView}
+                setCurrentView={setCurrentView}
+                playlists={playlists}
+                createPlaylist={() => {
+                  setDialog({
+                    isOpen: true,
+                    title: 'Nouvelle Playlist',
+                    message: 'Entrez le nom de votre nouvelle playlist :',
+                    type: 'prompt',
+                    defaultValue: `Playlist #${playlists.length + 1}`,
+                    onConfirm: (name) => {
+                      if (name) setPlaylists(prev => [...prev, { id: Math.random().toString(36), name, description: '', tracks: [] }]);
+                    }
+                  });
+                }}
+                 isOpen={isSidebarOpen}
+                 onClose={() => setIsSidebarOpen(false)}
+                 onPlaylistClick={(id) => {
+                   setSelectedPlaylistId(id);
+                   setCurrentView('playlist');
+                   setIsSidebarOpen(false);
+                 }}
+              />
+
+              <main className="flex-1 flex flex-col overflow-hidden shadow-2xl" style={{ background: mainBg }}>
+                <PermissionBanner />
+                <Header
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  handleSearch={handleSearch}
+                  theme={theme}
+                  toggleTheme={toggleTheme}
+                  onMenuOpen={() => setIsSidebarOpen(true)}
+                  user={user}
+                  authLoading={authLoading}
+                  isScanning={isScanning}
+                  onRecognitionOpen={() => setIsRecognitionOpen(true)}
+                />
+
+                <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-2 scroll-smooth">
+                  {currentView === 'home' && (
+                    <HomeView
+                      currentTrack={player.currentTrack}
+                      playTrack={player.playTrack}
+                      handleMoodClick={handleMoodClick}
+                      isMoodLoading={isMoodLoading}
+                      recentlyPlayed={recentlyPlayedTracks}
+                      liveTracks={liveTracks}
+                      recommendations={homeRecommendations}
+                      isRecommendationsLoading={isHomeLoading}
+                    />
+                  )}
+                  {currentView === 'search' && (
+                    <SearchView
+                      searchResults={searchResults}
+                      isSearching={isSearching || isMoodLoading}
+                      searchQuery={searchQuery}
+                      currentTrack={player.currentTrack}
+                      favorites={player.favorites}
+                      playTrack={player.playTrack}
+                      toggleFavorite={player.toggleFavorite}
+                      formatTime={player.formatTime}
+                      playlists={playlists}
+                      onAddToPlaylist={addTrackToPlaylist}
+                    />
+                  )}
+                  {currentView === 'library' && (
+                    <LibraryView
+                      favorites={player.favorites}
+                      playlists={playlists}
+                      stats={player.stats}
+                      localTracks={localTracks}
+                      onImportFiles={processFiles}
+                      playTrack={player.playTrack}
+                      onPlaylistClick={(id) => {
+                         setSelectedPlaylistId(id);
+                         setCurrentView('playlist');
+                       }}
+                       formatTime={player.formatTime}
+                       sortBy={sortBy}
+                       onSortChange={setSortBy}
+                     />
+                  )}
+                  {currentView === 'playlist' && (
+                    <PlaylistView
+                      playlist={playlists.find(p => p.id === selectedPlaylistId) || null}
+                      playTrack={player.playTrack}
+                      currentTrackId={player.currentTrack?.id}
+                      formatTime={player.formatTime}
+                      onDeletePlaylist={deletePlaylist}
+                      onRenamePlaylist={renamePlaylist}
+                      onRemoveTrack={removeTrackFromPlaylist}
+                      sortBy={sortBy}
+                      onSortChange={setSortBy}
+                    />
+                  )}
+                  {currentView === 'ai-studio' && (
+                    <AIStudioView onPlayTrack={player.playTrack} />
+                  )}
+                </div>
+              </main>
+            </div>
+
+            <PlayerBar
+              currentTrack={player.currentTrack}
+              isPlaying={player.isPlaying}     setIsPlaying={player.setIsPlaying}
+              isMuted={player.isMuted}         setIsMuted={player.setIsMuted}
+              volume={player.volume}           setVolume={player.setVolume}
+              played={player.played}           duration={player.duration}
+              repeatMode={player.repeatMode}   setRepeatMode={player.setRepeatMode}
+              isShuffle={player.isShuffle}     setIsShuffle={player.setIsShuffle}
+              isClipMode={player.isClipMode}   setIsClipMode={player.setIsClipMode}
+              favorites={player.favorites}
+              toggleFavorite={player.toggleFavorite}
+              handleSeekChange={player.handleSeekChange}
+              formatTime={player.formatTime}
+              skipToNext={player.skipToNext}
+              skipToPrev={player.skipToPrev}
+              onOpenNowPlaying={() => setIsNowPlayingOpen(true)}
+              isLoading={player.isLoading}
             />
-
-            <main className="flex-1 flex flex-col overflow-hidden shadow-2xl" style={{ background: mainBg }}>
-              <PermissionBanner />
-              <Header
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                handleSearch={handleSearch}
-                theme={theme}
-                toggleTheme={toggleTheme}
-                onMenuOpen={() => setIsSidebarOpen(true)}
-                user={user}
-                authLoading={authLoading}
-                isScanning={isScanning}
-                onRecognitionOpen={() => setIsRecognitionOpen(true)}
-              />
-
-              <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-2 scroll-smooth">
-                {currentView === 'home' && (
-                  <HomeView
-                    currentTrack={player.currentTrack}
-                    playTrack={player.playTrack}
-                    handleMoodClick={handleMoodClick}
-                    isMoodLoading={isMoodLoading}
-                    recentlyPlayed={recentlyPlayedTracks}
-                    liveTracks={liveTracks}
-                    recommendations={homeRecommendations}
-                    isRecommendationsLoading={isHomeLoading}
-                  />
-                )}
-                {currentView === 'search' && (
-                  <SearchView
-                    searchResults={searchResults}
-                    isSearching={isSearching || isMoodLoading}
-                    searchQuery={searchQuery}
-                    currentTrack={player.currentTrack}
-                    favorites={player.favorites}
-                    playTrack={player.playTrack}
-                    toggleFavorite={player.toggleFavorite}
-                    formatTime={player.formatTime}
-                    playlists={playlists}
-                    onAddToPlaylist={addTrackToPlaylist}
-                  />
-                )}
-                {currentView === 'library' && (
-                  <LibraryView
-                    favorites={player.favorites}
-                    playlists={playlists}
-                    stats={player.stats}
-                    localTracks={localTracks}
-                    onImportFiles={processFiles}
-                    playTrack={player.playTrack}
-                    onPlaylistClick={(id) => {
-                       setSelectedPlaylistId(id);
-                       setCurrentView('playlist');
-                     }}
-                     formatTime={player.formatTime}
-                     sortBy={sortBy}
-                     onSortChange={setSortBy}
-                   />
-                )}
-                {currentView === 'playlist' && (
-                  <PlaylistView
-                    playlist={playlists.find(p => p.id === selectedPlaylistId) || null}
-                    playTrack={player.playTrack}
-                    currentTrackId={player.currentTrack?.id}
-                    formatTime={player.formatTime}
-                    onDeletePlaylist={deletePlaylist}
-                    onRenamePlaylist={renamePlaylist}
-                    onRemoveTrack={removeTrackFromPlaylist}
-                    sortBy={sortBy}
-                    onSortChange={setSortBy}
-                  />
-                )}
-              </div>
-
-              <PlayerBar
-                currentTrack={player.currentTrack}
-                isPlaying={player.isPlaying}     setIsPlaying={player.setIsPlaying}
-                isMuted={player.isMuted}         setIsMuted={player.setIsMuted}
-                volume={player.volume}           setVolume={player.setVolume}
-                played={player.played}           duration={player.duration}
-                repeatMode={player.repeatMode}   setRepeatMode={player.setRepeatMode}
-                isShuffle={player.isShuffle}     setIsShuffle={player.setIsShuffle}
-                isClipMode={player.isClipMode}   setIsClipMode={player.setIsClipMode}
-                favorites={player.favorites}
-                toggleFavorite={player.toggleFavorite}
-                handleSeekChange={player.handleSeekChange}
-                formatTime={player.formatTime}
-                skipToNext={player.skipToNext}
-                skipToPrev={player.skipToPrev}
-                onOpenNowPlaying={() => setIsNowPlayingOpen(true)}
-                isLoading={player.isLoading}
-              />
-            </main>
           </div>
          )}
 
@@ -909,6 +977,6 @@ export default function App() {
         onClose={() => setIsRecognitionOpen(false)} 
         onResult={handleRecognitionResult}
       />
-    </>
+    </ErrorBoundary>
   );
 }

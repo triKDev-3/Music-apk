@@ -3,6 +3,7 @@ import { Play } from 'lucide-react';
 import { Track } from '../../types';
 
 interface TrackCardProps {
+  key?: string | number;
   track: Track;
   onPlay: () => void;
   isActive?: boolean;

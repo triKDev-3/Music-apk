@@ -47,5 +47,13 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Nous avons besoin d'accéder au micro pour la reconnaissance musicale.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Nous avons besoin d'accéder à la caméra pour analyser vos images et suggérer de la musique.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Nous avons besoin d'accéder à votre bibliothèque pour importer des fichiers musicaux ou analyser des images.</string>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>Nous avons besoin d'accéder à votre bibliothèque musicale pour lire vos titres locaux.</string>
 </dict>
 </plist>

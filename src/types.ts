@@ -18,7 +18,7 @@ export interface Playlist {
   coverUrl?: string;
 }
 
-export type View = 'home' | 'search' | 'library' | 'playlist' | 'now-playing';
+export type View = 'home' | 'search' | 'library' | 'playlist' | 'now-playing' | 'ai-studio';
 export type Theme = 'dark' | 'light';
 
 // User type from Firebase Auth
