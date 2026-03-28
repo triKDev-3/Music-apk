@@ -3,9 +3,10 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenAI, Type } from "@google/genai";
-import { initDatabase, getCachedSearch, setCachedSearch, isUsingMemoryCache } from "./server/db.ts";
+import { initDatabase, getCachedSearch, setCachedSearch, isUsingMemoryCache } from "./server/db.js";
 import "dotenv/config";
 import { spawn } from "child_process";
+import ytSearch from "yt-search";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -110,6 +111,11 @@ app.get("/api/stream", async (req, res) => {
   console.log(`[Stream] Streaming via ytdl-core pour: ${id}`);
   
   const startYtDlpFallback = () => {
+    if (process.env.VERCEL) {
+      console.error("[Stream] ytdl-core failed and yt-dlp fallback is not available on Vercel.");
+      if (!res.headersSent) res.status(503).send("Stream extraction failed on Vercel");
+      return;
+    }
     console.log(`[Stream] Fallback vers yt-dlp pour: ${id}`);
     const ytDlp = spawn("yt-dlp", [
       "-f", "bestaudio",
@@ -190,77 +196,25 @@ app.get("/api/search/youtube", async (req, res) => {
     return res.json(cached);
   }
 
-  const API_KEY = process.env.VITE_YOUTUBE_API_KEY || process.env.YOUTUBE_API_KEY || "";
-  if (!API_KEY || API_KEY === "YOUR_YOUTUBE_API_KEY") {
-    console.warn("YouTube API key not set or is a placeholder");
-    return res.status(401).json({ error: "YouTube API key is missing or invalid. Please set VITE_YOUTUBE_API_KEY." });
-  }
-
   try {
-    const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=20&key=${API_KEY}`);
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error("YouTube API error, falling back to yt-dlp:", JSON.stringify(errorData, null, 2));
-      throw new Error("API_KEY_INVALID");
-    }
-
-    const data = await response.json();
-    const results = data.items.map((item: any) => ({
-      id: item.id.videoId,
-      title: item.snippet.title,
-      artist: item.snippet.channelTitle,
+    const r = await ytSearch(query);
+    const videos = r.videos.slice(0, 20);
+    const results = videos.map(item => ({
+      id: item.videoId,
+      title: item.title,
+      artist: item.author.name,
       album: "YouTube Video",
-      coverUrl: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.default?.url,
-      duration: 0,
-      youtubeId: item.id.videoId,
+      coverUrl: item.thumbnail,
+      duration: item.seconds,
+      youtubeId: item.videoId,
       source: "youtube"
     }));
 
     await setCachedSearch(query, results, "search_cache");
     res.json(results);
   } catch (error: any) {
-    console.warn("[YouTube Search] Fallback to yt-dlp due to:", error.message);
-    
-    // Fallback to yt-dlp search if API key fails
-    if (process.env.VERCEL) {
-      return res.status(500).json({ error: "YouTube API failed and yt-dlp is not available on Vercel." });
-    }
-
-    const ytDlp = spawn("yt-dlp", [
-      "ytsearch10:" + query,
-      "--dump-json",
-      "--no-playlist",
-      "--flat-playlist"
-    ]);
-
-    let output = "";
-    ytDlp.stdout.on("data", (data) => output += data.toString());
-    
-    ytDlp.on("close", async (code) => {
-      try {
-        const lines = output.trim().split("\n").filter(l => l.trim().length > 0);
-        const results = lines.map(line => {
-          try {
-            const item = JSON.parse(line);
-            return {
-              id: item.id,
-              title: item.title,
-              artist: item.uploader || 'YouTube',
-              album: 'YouTube Music',
-              coverUrl: `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`,
-              duration: item.duration || 0,
-              youtubeId: item.id,
-              source: 'youtube'
-            };
-          } catch { return null; }
-        }).filter(r => !!r);
-        
-        await setCachedSearch(query, results, "search_cache");
-        res.json(results);
-      } catch (err) {
-        res.status(500).json({ error: "Search failed" });
-      }
-    });
+    console.error("[YouTube Search] Error:", error.message);
+    res.status(500).json({ error: "Search failed" });
   }
 });
 
