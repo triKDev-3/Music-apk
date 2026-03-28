@@ -184,7 +184,7 @@ app.get("/api/search/youtube", async (req, res) => {
     res.json(results);
   } catch (error: any) {
     console.error("[YouTube Search] Error:", error.message);
-    res.status(500).json({ error: "Search failed" });
+    res.status(500).json({ error: "Search failed", details: error.message });
   }
 });
 
