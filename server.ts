@@ -6,7 +6,6 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { initDatabase, getCachedSearch, setCachedSearch, isUsingMemoryCache } from "./server/db.js";
 import "dotenv/config";
 import { spawn } from "child_process";
-import ytSearch from "yt-search";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -167,9 +166,13 @@ app.get("/api/search/youtube", async (req, res) => {
   }
 
   try {
-    const r = await ytSearch(query);
+    const ytSearchModule: any = await import("yt-search");
+    const yt_search = ytSearchModule.default || ytSearchModule;
+    
+    console.log(`[YouTube Search] Querying: ${query}`);
+    const r = await yt_search(query);
     const videos = r.videos.slice(0, 20);
-    const results = videos.map(item => ({
+    const results = videos.map((item: any) => ({
       id: item.videoId,
       title: item.title,
       artist: item.author.name,

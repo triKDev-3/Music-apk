@@ -289,6 +289,17 @@ export default function App() {
       // Utilise le provider Google pour tenter de re-récupérer le credential
       // Note: le token OAuth n'est disponible qu'après signInWithPopup, pas au reload
       // On log juste pour informer
+      const isLocal = currentTrack?.id.startsWith('local-');
+      const hasValidYoutubeId = currentTrack?.youtubeId && currentTrack.youtubeId !== 'local-blob';
+      
+      // On n'utilise la balise <audio> QUE pour les fichiers locaux.
+      // Pour YouTube, on utilise ReactPlayer (même masqué) pour éviter les proxys backend instables sur Vercel.
+      const shouldPlayAudio = isPlaying && isLocal;
+
+      if (!audio || !localUrl || !shouldPlayAudio) {
+         if (audio && !audio.paused) audio.pause();
+         return;
+      }
       console.log('[Auth] Utilisateur restauré au reload:', user.displayName, '| Token YouTube: non disponible (reconnexion nécessaire)');
     });
   }, [user?.uid]);
@@ -689,7 +700,7 @@ export default function App() {
             key={`clip-${player.youtubeId}`}
             ref={player.reactPlayerRef}
             url={`https://www.youtube.com/watch?v=${player.youtubeId}`}
-            playing={player.isPlaying && player.isClipMode}
+            playing={player.isPlaying && (player.isClipMode || (player.currentTrack && !player.currentTrack.id.startsWith('local-')))}
             controls={true}
             volume={player.isMuted ? 0 : player.volume}
             muted={false}

@@ -289,16 +289,14 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
       skipToNextImpl(false);
     }
   }, [skipToNextImpl]);
-
-  // ── Audio HTML5 (Fichiers importés & Proxy local Node.js) ───────────────
+  // ── Audio HTML5 (Fichiers importés uniquement) ───────────────
   useEffect(() => {
     const audio = audioRef.current;
+    const isLocal = currentTrack?.id.startsWith('local-');
     
-    // Si nous n'utilisons pas la balise audio HTML5 (ex: mode vidéo ReactPlayer activé ou pas de flux backend)
-    // On autorise la lecture audio même en mode clip si on n'a pas encore de youtubeId (ex: recherche en cours)
-    // ou si c'est un fichier local (on joue le local en attendant le clip)
-    const hasValidYoutubeId = currentTrack?.youtubeId && currentTrack.youtubeId !== 'local-blob';
-    const shouldPlayAudio = isPlaying && (!isClipMode || !hasValidYoutubeId);
+    // On n'utilise la balise <audio> QUE pour les fichiers locaux.
+    // Pour YouTube, on utilise ReactPlayer (même masqué) pour éviter les proxys backend instables sur Vercel.
+    const shouldPlayAudio = isPlaying && isLocal;
 
     if (!audio || !localUrl || !shouldPlayAudio) {
        if (audio && !audio.paused) audio.pause();
