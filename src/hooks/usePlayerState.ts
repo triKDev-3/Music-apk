@@ -186,14 +186,16 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
       setActiveQueue(related.length > 0 ? related : [track]);
     }
 
-    // Si on demande de jouer le même morceau, on redémarre simplement au début
+    // Empêcher de relancer si c'est déjà en cours (évite le double-déclenchement au clic)
+    if (currentTrackRef.current?.id === track.id && isPlaying) {
+       return;
+    }
+    
+    // Si on demande de jouer le même morceau mais qu'il est en pause, on le relance semplicemente
     if (currentTrackRef.current?.id === track.id) {
-       // On remet à zéro les chronos
        if (!isClipModeRef.current && audioRef.current) {
-          audioRef.current.currentTime = 0;
-          if (!isPlaying) audioRef.current.play().catch(() => {});
-       } else if (reactPlayerRef.current) {
-          reactPlayerRef.current.seekTo(0);
+         // Déjà initialisé via useEffect, on s'assure juste du play()
+         audioRef.current.play().catch(() => {});
        }
        setIsPlaying(true);
        return;
@@ -299,12 +301,18 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
     const shouldPlayAudio = isPlaying && isLocal;
 
     if (!audio || !localUrl || !isLocal || !isPlaying) {
-       if (audio && !audio.paused && (!isPlaying || !isLocal)) audio.pause();
+       if (audio && !audio.paused && (isPlaying === false || isLocal === false)) {
+          audio.pause();
+          console.log('[Audio] Paused - isLocal:', isLocal, 'isPlaying:', isPlaying);
+       }
        return;
     }
     
-    // Si l'URL localUrl change mais n'est pas encore un Blob URL valide, on attend
-    if (isLocal && !localUrl.startsWith('blob:')) return;
+    // Si l'URL n'est pas encore un Blob URL pour un fichier local, on attend
+    if (isLocal && !localUrl.startsWith('blob:')) {
+       console.log('[Audio] Waiting for blob URL...');
+       return;
+    }
 
     audio.volume = isMuted ? 0 : volume;
 
