@@ -86,6 +86,38 @@ app.get("/api/stream", async (req, res) => {
   }
 });
 
+// Gemini Music Recognition
+app.post("/api/recognize", async (req, res) => {
+  const { base64Audio, mimeType } = req.body;
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  if (!apiKey) return res.status(500).json({ error: "Gemini API key not configured" });
+  if (!base64Audio) return res.status(400).json({ error: "Audio data required" });
+
+  try {
+    const { GoogleGenerativeAI } = await import("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    const prompt = "Identify this song and artist. Respond Only with 'Title - Artist' or 'Unknown' if not found.";
+    const result = await model.generateContent([
+      prompt,
+      {
+        inlineData: {
+          data: base64Audio,
+          mimeType: mimeType || "audio/webm"
+        }
+      }
+    ]);
+
+    const text = result.response.text().trim();
+    res.json({ result: text });
+  } catch (error: any) {
+    console.error("[Lambda Recognize] Error:", error.message);
+    res.status(500).json({ error: "Recognition failed", details: error.message });
+  }
+});
+
 // App Dashboard Stats (Mock for now to stabilize)
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", time: new Date().toISOString() });

@@ -186,16 +186,9 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
       setActiveQueue(related.length > 0 ? related : [track]);
     }
 
-    // Si on demande de jouer le même morceau, on force le redémarrage
+    // Si on demande de jouer le même morceau, on ne fait rien si déjà en lecture
     if (currentTrackRef.current?.id === track.id) {
-      if (!isClipModeRef.current && audioRef.current) {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => {});
-      } else if (reactPlayerRef.current && typeof reactPlayerRef.current.seekTo === 'function') {
-        reactPlayerRef.current.seekTo(0);
-      }
-      setPlayed(0);
-      setIsPlaying(true);
+      if (!isPlaying) setIsPlaying(true);
       return;
     }
 
