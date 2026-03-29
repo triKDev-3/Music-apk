@@ -84,6 +84,15 @@
   .animate-marquee {
     animation: marquee 20s linear infinite;
   }
+
+  .phantom-player {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    left: -9999px;
+    opacity: 0.01;
+    pointer-events: none;
+  }
 }
 
 /* Custom Scrollbar */

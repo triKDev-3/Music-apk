@@ -126,19 +126,47 @@ async function fetchFromBackend(query: string): Promise<Track[]> {
                 const data = await res.json();
                 const results = Array.isArray(data) ? data : (data.items || []);
                 if (results.length > 0) return results;
-            } else {
-                const text = await res.text();
-                console.error(`[YouTube] Backend returned non-JSON response (${contentType}):`, text.substring(0, 100));
             }
-        } else {
-            console.error(`[YouTube] Backend search failed with status ${res.status}`);
         }
-        console.warn(`[YouTube] Backend indisponible pour "${query}", cascade vers Gemini.`);
-        return []; // Retourner [] pour déclencher le fallback Gemini dans App.tsx
+        
+        // Fallback Invidious si le backend échoue ou ne renvoie rien
+        return fetchFromInvidious(query);
     } catch (e) {
-        console.error('[YouTube] Échec critique recherche backend:', e);
-        return []; // Idem : laisser App.tsx cascader vers Gemini
+        console.error('[YouTube] Échec backend search, fallback Invidious:', e);
+        return fetchFromInvidious(query);
     }
+}
+
+/** Fallback Invidious (Public API) */
+async function fetchFromInvidious(query: string): Promise<Track[]> {
+  try {
+    console.log(`[Invidious] Recherche fallback pour: "${query}"`);
+    // Liste d'instances publiques au cas où snopyta est down
+    const instances = [
+      'https://invidious.snopyta.org',
+      'https://yewtu.be',
+      'https://invidious.kavin.rocks'
+    ];
+    
+    // Essai sur la première instance (snopyta)
+    const res = await fetch(`${instances[0]}/api/v1/search?q=${encodeURIComponent(query)}&type=video`);
+    if (!res.ok) throw new Error('Invidious request failed');
+    
+    const data = await res.json();
+    return data.map((item: any) => ({
+      id: item.videoId,
+      title: item.title,
+      artist: item.author,
+      album: 'Invidious Proxy',
+      coverUrl: item.videoThumbnails?.find((t: any) => t.quality === 'high')?.url || `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`,
+      duration: item.lengthSeconds,
+      youtubeId: item.videoId,
+      source: 'youtube'
+    }));
+  } catch (e) {
+    console.error('[Invidious] Échec total:', e);
+    return [];
+  }
 }
 
 /** Résultats de secours enrichis (utilisés sans connexion ou en cas d'échec total) */

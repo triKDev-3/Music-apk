@@ -165,12 +165,14 @@ app.get("/api/search/youtube", async (req, res) => {
     return res.json(cached);
   }
 
+  const SPOOF_UA = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36";
+
   try {
     const ytSearchModule: any = await import("yt-search");
     const yt_search = ytSearchModule.default || ytSearchModule;
     
     console.log(`[YouTube Search] Querying: ${query}`);
-    const r = await yt_search(query);
+    const r = await yt_search({ query, agent: SPOOF_UA }); // Tentative de spoof UA si supporté par yt-search
     const videos = r.videos.slice(0, 20);
     const results = videos.map((item: any) => ({
       id: item.videoId,
@@ -183,11 +185,40 @@ app.get("/api/search/youtube", async (req, res) => {
       source: "youtube"
     }));
 
-    await setCachedSearch(query, results, "search_cache");
-    res.json(results);
+    if (results.length > 0) {
+      await setCachedSearch(query, results, "search_cache");
+      return res.json(results);
+    }
+    throw new Error("No results found via yt-search");
   } catch (error: any) {
-    console.error("[YouTube Search] Error:", error.message);
-    res.status(500).json({ error: "Search failed", details: error.message });
+    console.error(`[YouTube Search] Error with yt-search: ${error.message}. Fallback to Invidious.`);
+    
+    // Fallback Invidious on Backend
+    try {
+      const invidiousRes = await fetch(`https://invidious.snopyta.org/api/v1/search?q=${encodeURIComponent(query)}&type=video`, {
+        headers: { "User-Agent": SPOOF_UA }
+      });
+      const data: any = await invidiousRes.json();
+      const results = data.map((item: any) => ({
+        id: item.videoId,
+        title: item.title,
+        artist: item.author,
+        album: "Invidious Proxy",
+        coverUrl: item.videoThumbnails?.[0]?.url || `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`,
+        duration: item.lengthSeconds,
+        youtubeId: item.videoId,
+        source: "youtube"
+      }));
+      
+      if (results.length > 0) {
+        await setCachedSearch(query, results, "search_cache");
+        return res.json(results);
+      }
+    } catch (invError: any) {
+      console.error("[Invidious Search] Failed:", invError.message);
+    }
+
+    res.status(500).json({ error: "Search failed everywhere", details: error.message });
   }
 });
 

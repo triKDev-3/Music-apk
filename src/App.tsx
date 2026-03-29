@@ -11,6 +11,7 @@ import { clsx } from 'clsx';
 import ReactPlayer from 'react-player';
 import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
+import { BackgroundMode } from '@awesome-cordova-plugins/background-mode';
 
 import { usePlayerState } from './hooks/usePlayerState';
 import { useAuth }        from './hooks/useAuth';
@@ -168,10 +169,27 @@ export default function App() {
   const { user, loading: authLoading } = useAuth();
   const player = usePlayerState({ searchResults, user });
 
-  // ── Initialisation Google Auth (Capacitor) ──────────────────────────────
+  // ── Initialisation Google Auth & Background Mode (Capacitor) ──────────────
   useEffect(() => {
-    // Si on est sur le Web, on initialise GoogleAuth avec l'ID client de Firebase
-    if (!Capacitor.isNativePlatform()) {
+    if (Capacitor.isNativePlatform()) {
+      // Configuration Background Mode
+      try {
+        BackgroundMode.enable();
+        BackgroundMode.overrideBackButton();
+        BackgroundMode.setDefaults({
+          title: 'Play-Me',
+          text: 'Musique en cours...',
+          icon: 'ic_launcher',
+          color: '8F00FF',
+          resume: true,
+          hidden: false,
+          bigText: true
+        });
+      } catch (e) {
+        console.warn('[Capacitor] BackgroundMode failed to initialize:', e);
+      }
+    } else {
+      // Si on est sur le Web, on initialise GoogleAuth avec l'ID client de Firebase
       GoogleAuth.initialize({
         clientId: '742584976934-0nmes6v5qfv9vfhiqgvdcoa9qls9h86i.apps.googleusercontent.com',
         scopes: ['profile', 'email'],
@@ -179,6 +197,15 @@ export default function App() {
       });
     }
   }, []);
+
+  // Activer explicitement le mode background quand la lecture commence
+  useEffect(() => {
+    if (Capacitor.isNativePlatform() && player.isPlaying) {
+      try {
+        BackgroundMode.enable();
+      } catch {}
+    }
+  }, [player.isPlaying]);
 
 
   // ── Chargement Initial (Firestore ou LocalStorage) ──────────────────────────
@@ -692,7 +719,7 @@ export default function App() {
             'transition-all duration-700 ease-in-out overflow-hidden',
             player.isClipMode
               ? (isPipActive ? 'fixed bottom-[100px] right-[24px] w-[200px] h-[112px] z-[200] rounded-2xl shadow-2xl border border-white/10 cursor-pointer group/clippip' : 'absolute inset-0 z-[180] pointer-events-auto bg-black')
-              : 'fixed top-0 left-0 w-1 h-1 opacity-[0.01] pointer-events-none z-[-100]', // Lecteur actif mais invisible derrière le fond (crucial pour le background Android)
+              : 'phantom-player', // Lecteur actif mais invisible hors-écran (crucial pour le background Android)
           )}
           onClick={isPipActive ? () => setIsPipActive(false) : undefined}
         >
