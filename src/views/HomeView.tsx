@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Smile, Zap, Heart as HeartIcon, Dumbbell, Play, History, TrendingUp, Radio, Music, Moon, Flame, ChevronLeft } from 'lucide-react';
+import { Smile, Zap, Heart as HeartIcon, Dumbbell, Play, History, TrendingUp, Radio, Music, Moon, Flame, ChevronLeft, Upload } from 'lucide-react';
 import { Track } from '../types';
 import { INITIAL_TRACKS } from '../data/initialTracks';
 import { TrackCard } from '../components/ui/TrackCard';
