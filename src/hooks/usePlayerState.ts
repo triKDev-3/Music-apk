@@ -425,10 +425,16 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   }, []);
 
   const handleDurationChange = useCallback((d: number) => {
-    // ReactPlayer onDuration returns the duration number directly
     if (typeof d === 'number' && d > 0) {
       setDuration(d);
+      setIsLoading(false); // On a la durée, c'est que c'est prêt
     }
+  }, []);
+
+  const handleError = useCallback((e: any) => {
+    console.error('[Player Error]', e);
+    setHasError(true);
+    setIsLoading(false);
   }, []);
 
   const handleDuration = useCallback((d: number) => {
@@ -550,6 +556,7 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
     playerRef,    reactPlayerRef, audioRef,
     playTrack,    toggleFavorite,
     handleTimeUpdate, handleDurationChange, handleSeekChange, handleReady,
+    handleError,
     formatTime,
     skipToNext: skipToNextImpl,
     skipToPrev: skipToPrevImpl,

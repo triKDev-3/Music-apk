@@ -683,7 +683,7 @@ export default function App() {
             'transition-all duration-700 ease-in-out overflow-hidden',
             player.isClipMode
               ? (isPipActive ? 'fixed bottom-[100px] right-[24px] w-[200px] h-[112px] z-[200] rounded-2xl shadow-2xl border border-white/10 cursor-pointer group/clippip' : 'absolute inset-0 z-[180] pointer-events-auto bg-black')
-              : 'fixed opacity-0 w-[400px] h-[300px] -bottom-[2000px] pointer-events-none', // Lecteur virtuel hors écran pour l'audio!
+              : 'fixed top-0 left-0 w-1 h-1 opacity-0 pointer-events-none z-[-1]', // Lecteur virtuel minimaliste pour l'audio
           )}
           onClick={isPipActive ? () => setIsPipActive(false) : undefined}
         >
@@ -705,9 +705,14 @@ export default function App() {
             volume={player.isMuted ? 0 : player.volume}
             muted={false}
             playbackRate={player.playbackRate}
+            onReady={player.handleReady}
+            onStart={() => player.setIsLoading(false)}
+            onBuffer={() => player.setIsLoading(true)}
+            onBufferEnd={() => player.setIsLoading(false)}
             onProgress={player.handleTimeUpdate}
             onDuration={player.handleDurationChange}
             onEnded={player.handleEnded}
+            onError={player.handleError}
             loop={player.repeatMode === 'one'}
             progressInterval={500}
             config={{
