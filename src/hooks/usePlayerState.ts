@@ -186,11 +186,12 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
       setActiveQueue(related.length > 0 ? related : [track]);
     }
 
-    // Si on demande de jouer le même morceau, on redémarre le morceau au début
+    // Si on demande de jouer le même morceau, on redémarre simplement au début
     if (currentTrackRef.current?.id === track.id) {
+       // On remet à zéro les chronos
        if (!isClipModeRef.current && audioRef.current) {
           audioRef.current.currentTime = 0;
-          audioRef.current.play().catch(() => {});
+          if (!isPlaying) audioRef.current.play().catch(() => {});
        } else if (reactPlayerRef.current) {
           reactPlayerRef.current.seekTo(0);
        }
@@ -297,10 +298,13 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
     // Les musiques YouTube utilisent ReactPlayer pour éviter les erreurs 500 du backend sur Vercel.
     const shouldPlayAudio = isPlaying && isLocal;
 
-    if (!audio || !localUrl || !shouldPlayAudio) {
-       if (audio && !audio.paused) audio.pause();
+    if (!audio || !localUrl || !isLocal || !isPlaying) {
+       if (audio && !audio.paused && (!isPlaying || !isLocal)) audio.pause();
        return;
     }
+    
+    // Si l'URL localUrl change mais n'est pas encore un Blob URL valide, on attend
+    if (isLocal && !localUrl.startsWith('blob:')) return;
 
     audio.volume = isMuted ? 0 : volume;
 
@@ -343,26 +347,16 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
     audio.addEventListener('timeupdate', onTimeUpdate);
     audio.addEventListener('error', onError);
 
-    if (isPlaying) {
-      if (!localUrl) {
-        setIsLoading(true);
-      } else {
-        if (audio.readyState >= 3) setIsLoading(false);
-        else setIsLoading(true);
-        
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(e => {
-            if (e.name !== 'AbortError') {
-              console.error("Local play error:", e);
-              setIsPlaying(false);
-              setHasError(true);
-            }
-          });
+    // Démarrer la lecture locale
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(e => {
+        if (e.name !== 'AbortError') {
+          console.error("Local play exception:", e);
+          setIsPlaying(false);
+          setHasError(true);
         }
-      }
-    } else {
-      audio.pause();
+      });
     }
 
     return () => { 
@@ -372,7 +366,7 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('error', onError);
     };
-  }, [isPlaying, currentTrack, isMuted, volume, localUrl]);
+  }, [isPlaying, currentTrack?.id, isMuted, volume, localUrl]);
 
   // ── Volume audio local en temps réel ─────────────────────────────────────
   useEffect(() => {
