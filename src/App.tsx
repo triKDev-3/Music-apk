@@ -289,17 +289,6 @@ export default function App() {
       // Utilise le provider Google pour tenter de re-récupérer le credential
       // Note: le token OAuth n'est disponible qu'après signInWithPopup, pas au reload
       // On log juste pour informer
-      const isLocal = currentTrack?.id.startsWith('local-');
-      const hasValidYoutubeId = currentTrack?.youtubeId && currentTrack.youtubeId !== 'local-blob';
-      
-      // On n'utilise la balise <audio> QUE pour les fichiers locaux.
-      // Pour YouTube, on utilise ReactPlayer (même masqué) pour éviter les proxys backend instables sur Vercel.
-      const shouldPlayAudio = isPlaying && isLocal;
-
-      if (!audio || !localUrl || !shouldPlayAudio) {
-         if (audio && !audio.paused) audio.pause();
-         return;
-      }
       console.log('[Auth] Utilisateur restauré au reload:', user.displayName, '| Token YouTube: non disponible (reconnexion nécessaire)');
     });
   }, [user?.uid]);
@@ -700,25 +689,22 @@ export default function App() {
             key={`clip-${player.youtubeId}`}
             ref={player.reactPlayerRef}
             url={`https://www.youtube.com/watch?v=${player.youtubeId}`}
-            playing={player.isPlaying && (player.isClipMode || (player.currentTrack && !player.currentTrack.id.startsWith('local-')))}
+            playing={player.isPlaying && player.isClipMode}
             controls={true}
             volume={player.isMuted ? 0 : player.volume}
             muted={false}
             playbackRate={player.playbackRate}
-            onReady={player.handleReady}
-            onStart={() => player.setIsLoading(false)}
-            onBuffer={() => player.setIsLoading(true)}
-            onBufferEnd={() => player.setIsLoading(false)}
-            onProgress={player.handleTimeUpdate}
-            onDuration={player.handleDurationChange}
-            onEnded={player.handleEnded}
-            onError={player.handleError}
             loop={player.repeatMode === 'one'}
             progressInterval={500}
             config={{
               youtube: {
                 rel: 0,
-                origin: window.location.origin
+                origin: window.location.origin,
+                playerVars: {
+                  autoplay: 1,
+                  modestbranding: 1,
+                  iv_load_policy: 3
+                }
               }
             }}
             onReady={() => {
@@ -733,13 +719,15 @@ export default function App() {
               console.log('[ReactPlayer] Play Event');
               player.setIsLoading(false);
             }}
-            onError={(e: any) => {
-              console.error('[ReactPlayer] Error for ID:', player.youtubeId, e);
-              player.setIsLoading(false);
-              player.setHasError(true);
-            }}
             onBuffer={() => player.setIsLoading(true)}
             onBufferEnd={() => player.setIsLoading(false)}
+            onProgress={player.handleTimeUpdate}
+            onDuration={player.handleDurationChange}
+            onEnded={player.handleEnded}
+            onError={(e: any) => {
+              console.error('[ReactPlayer] Error for ID:', player.youtubeId, e);
+              player.handleError(e);
+            }}
             width="100%"
             height="100%"
             playsinline

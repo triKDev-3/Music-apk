@@ -293,10 +293,11 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   useEffect(() => {
     const audio = audioRef.current;
     const isLocal = currentTrack?.id.startsWith('local-');
+    const hasValidYoutubeId = currentTrack?.youtubeId && currentTrack.youtubeId !== 'local-blob';
     
-    // On n'utilise la balise <audio> QUE pour les fichiers locaux.
-    // Pour YouTube, on utilise ReactPlayer (même masqué) pour éviter les proxys backend instables sur Vercel.
-    const shouldPlayAudio = isPlaying && isLocal;
+    // On n'utilise la balise <audio> que pour les fichiers locaux OU les musiques YouTube en mode Audio.
+    // Pour les musiques YouTube, on passe par /api/stream qui redirige vers le flux direct.
+    const shouldPlayAudio = isPlaying && (!isClipMode || !hasValidYoutubeId);
 
     if (!audio || !localUrl || !shouldPlayAudio) {
        if (audio && !audio.paused) audio.pause();
