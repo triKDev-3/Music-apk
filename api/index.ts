@@ -43,24 +43,46 @@ app.get("/api/stream", async (req, res) => {
   const id = req.query.id as string;
   if (!id) return res.status(400).send("ID is required");
 
+  // Keep track of attempts
+  console.log(`[Lambda Stream] Request for ID: ${id}`);
+
   try {
     const ytdlModule: any = await import("@distube/ytdl-core");
     const ytdl = ytdlModule.default || ytdlModule;
     
     const url = `https://www.youtube.com/watch?v=${id}`;
-    const info = await ytdl.getInfo(url);
+    
+    // Some videos are restricted. Try with basic headers.
+    const info = await ytdl.getInfo(url, {
+      requestOptions: {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': '*/*',
+          'Accept-Language': 'en-US,en;q=0.9',
+        }
+      }
+    });
+
     const format = ytdl.chooseFormat(info.formats, { 
       filter: "audioonly",
       quality: "highestaudio"
     });
 
     if (format && format.url) {
-      return res.redirect(format.url);
+      console.log(`[Lambda Stream] Success - Redirecting to stream URL`);
+      // Vercel might have issues with long redirects. Use 302.
+      return res.status(302).redirect(format.url);
     }
+    
     throw new Error("No suitable format found");
   } catch (error: any) {
     console.error("[Lambda Stream] Extraction failed:", error.message);
-    res.status(500).send(`Stream extraction failed: ${error.message}`);
+    // Return detailed error for debugging in console
+    res.status(500).json({ 
+      error: "Stream extraction failed", 
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 

@@ -260,8 +260,22 @@ export default function App() {
   // ── Persistence playlists & theme ─────────────────────────────────────────────
   useEffect(() => {
     if (user?.uid) {
+      // Strip Blobs from localTracks before saving to Firestore to avoid "Unsupported field value: a custom File object" error
+      const serializableLocalTracks = localTracks.map(t => {
+        const { fileBlob, ...rest } = t as any;
+        return rest;
+      });
+      // Strip Blobs from tracks inside playlists as well
+      const serializablePlaylists = playlists.map(p => ({
+        ...p,
+        tracks: p.tracks.map(t => {
+          const { fileBlob, ...rest } = t as any;
+          return rest;
+        })
+      }));
+
       import('./services/dbService').then(({ saveUserData }) => {
-        saveUserData(user.uid, { playlists, localTracks });
+        saveUserData(user.uid, { playlists: serializablePlaylists, localTracks: serializableLocalTracks });
       });
     } else {
       localStorage.setItem('playme_playlists', JSON.stringify(playlists));
