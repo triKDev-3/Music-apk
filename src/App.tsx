@@ -51,22 +51,13 @@ const Player = React.forwardRef<any, any>((props, ref) => {
 });
 Player.displayName = 'Player';
 
-interface ErrorBoundaryProps {
-  children: React.ReactNode;
-}
-
-interface ErrorBoundaryState {
-  hasError: boolean;
-  error: any;
-}
-
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: any }> {
+  constructor(props: { children: React.ReactNode }) {
     super(props);
     this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(error: any): ErrorBoundaryState {
+  static getDerivedStateFromError(error: any) {
     return { hasError: true, error };
   }
 
@@ -89,13 +80,15 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       }
 
       return (
-        <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 text-center">
-          <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Oups ! Quelque chose s'est mal passé.</h1>
-          <p className="text-gray-400 mb-6 max-w-md">{errorMessage}</p>
-          <button
+        <div className="flex flex-col items-center justify-center h-full min-h-screen space-y-4 p-8 text-center bg-black">
+          <div className="p-4 bg-red-500/10 rounded-full">
+            <X size={48} className="text-red-500" />
+          </div>
+          <h2 className="text-2xl font-black text-white">Oops ! Quelque chose a mal tourné.</h2>
+          <p className="text-white/40 max-w-md">{errorMessage}</p>
+          <button 
             onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-white text-black rounded-full font-medium hover:bg-gray-200 transition-colors"
+            className="px-6 py-2 bg-violet-600 text-white font-bold rounded-full hover:bg-violet-700 transition-colors"
           >
             Recharger l'application
           </button>
@@ -923,6 +916,8 @@ export default function App() {
                       liveTracks={liveTracks}
                       recommendations={homeRecommendations}
                       isRecommendationsLoading={isHomeLoading}
+                      localTracks={localTracks}
+                      onImportClick={processFiles}
                     />
                   )}
                   {currentView === 'search' && (
