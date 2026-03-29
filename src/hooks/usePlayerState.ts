@@ -186,10 +186,16 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
       setActiveQueue(related.length > 0 ? related : [track]);
     }
 
-    // Si on demande de jouer le même morceau, on ne fait rien si déjà en lecture
+    // Si on demande de jouer le même morceau, on redémarre le morceau au début
     if (currentTrackRef.current?.id === track.id) {
-      if (!isPlaying) setIsPlaying(true);
-      return;
+       if (!isClipModeRef.current && audioRef.current) {
+          audioRef.current.currentTime = 0;
+          audioRef.current.play().catch(() => {});
+       } else if (reactPlayerRef.current) {
+          reactPlayerRef.current.seekTo(0);
+       }
+       setIsPlaying(true);
+       return;
     }
 
     console.log('[Player] Playing:', track.title, '| ID:', track.youtubeId);

@@ -60,7 +60,7 @@ interface ErrorBoundaryState {
   error: any;
 }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -70,20 +70,22 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     return { hasError: true, error };
   }
 
-  override componentDidCatch(error: any, errorInfo: any) {
+  componentDidCatch(error: any, errorInfo: any) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  override render() {
+  render() {
     if (this.state.hasError) {
       let errorMessage = "Une erreur inattendue s'est produite.";
       try {
-        const parsedError = JSON.parse(this.state.error.message);
-        if (parsedError.error) {
-          errorMessage = `Erreur Firestore (${parsedError.operationType}) : ${parsedError.error}`;
+        if (this.state.error?.message) {
+          const parsedError = JSON.parse(this.state.error.message);
+          if (parsedError.error) {
+            errorMessage = `Erreur Firestore (${parsedError.operationType}) : ${parsedError.error}`;
+          }
         }
       } catch (e) {
-        errorMessage = this.state.error.message || errorMessage;
+        errorMessage = this.state.error?.message || errorMessage;
       }
 
       return (
@@ -469,6 +471,17 @@ export default function App() {
       
       if (ytResults && ytResults.length > 0) {
         const topResult = ytResults[0];
+        // Si on demande de jouer le même morceau, on redémarre le morceau au début
+        if (player.currentTrack?.id === track.id) {
+          if (player.isClipMode && player.reactPlayerRef.current) {
+            player.reactPlayerRef.current.seekTo(0);
+          } else if (!player.isClipMode && player.audioRef.current) {
+            player.audioRef.current.currentTime = 0;
+            if (player.localUrl) player.audioRef.current.play().catch(() => {});
+          }
+          player.setIsPlaying(true);
+          return;
+        }
         // On met à jour le morceau en cours si c'est toujours le même
         if (player.currentTrack?.id === track.id) {
           player.playTrack({
@@ -686,7 +699,7 @@ export default function App() {
             'transition-all duration-700 ease-in-out overflow-hidden',
             player.isClipMode
               ? (isPipActive ? 'fixed bottom-[100px] right-[24px] w-[200px] h-[112px] z-[200] rounded-2xl shadow-2xl border border-white/10 cursor-pointer group/clippip' : 'absolute inset-0 z-[180] pointer-events-auto bg-black')
-              : 'fixed top-0 left-0 w-1 h-1 opacity-10 pointer-events-none z-[-20]', // Lecteur actif mais invisible derrière le fond pour éviter la suspension par le système (crucial pour Android WebView)
+              : 'fixed top-0 left-0 w-1 h-1 opacity-[0.01] pointer-events-none z-[-100]', // Lecteur actif mais invisible derrière le fond (crucial pour le background Android)
           )}
           onClick={isPipActive ? () => setIsPipActive(false) : undefined}
         >
