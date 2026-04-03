@@ -11,31 +11,15 @@ import {
 import { getFirestore } from 'firebase/firestore';
 import { setYouTubeOAuthToken } from './youtubeService';
 import { Capacitor } from '@capacitor/core';
-import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { testConnection } from './dbService';
-
-// Initialize Firebase
+// Initialize Firebase — une seule instance (pattern singleton)
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
 export const auth = getAuth(app);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
-// Initialize Capacitor Google Auth
-if (Capacitor.isNativePlatform()) {
-  GoogleAuth.initialize({
-    clientId: firebaseConfig.apiKey, // This should be the Web Client ID from Firebase Console
-    scopes: ['profile', 'email'],
-    grantOfflineAccess: true,
-  });
-}
-
-// Test connection
-testConnection();
-
 const googleProvider = new GoogleAuthProvider();
-// On commente ce scope sensible pour éviter l'avertissement "Application non validée"
-// googleProvider.addScope('https://www.googleapis.com/auth/youtube.readonly');
 
 export const loginWithGoogle = async () => {
   if (!auth) {
@@ -46,19 +30,30 @@ export const loginWithGoogle = async () => {
   try {
     // ── GESTION MOBILE NATIVE (Capacitor) ───────────────────────
     if (Capacitor.isNativePlatform()) {
-      console.log('[Auth] Connexion Native détectée...');
-      const googleUser = await GoogleAuth.signIn();
-      const idToken = googleUser.authentication.idToken;
+      console.log('[Auth] Connexion Native (Firebase Authentication)...');
       
-      if (!idToken) throw new Error("ID Token manquant");
+      let result: any;
+      try {
+        result = await FirebaseAuthentication.signInWithGoogle();
+      } catch (nativeErr: any) {
+        console.error('[Auth] Erreur plugin natif signInWithGoogle:', nativeErr);
+        const msg = nativeErr?.message || nativeErr?.code || JSON.stringify(nativeErr);
+        alert(`Erreur Auth Native : ${msg}`);
+        return null;
+      }
+      
+      const idToken = result?.credential?.idToken;
+      if (!idToken) {
+        console.error('[Auth] ID Token absent dans le résultat natif:', JSON.stringify(result));
+        alert('Erreur Auth : ID Token Google manquant. Vérifiez votre SHA-1 dans Firebase Console.');
+        return null;
+      }
       
       const credential = GoogleAuthProvider.credential(idToken);
-      const result = await signInWithCredential(auth, credential);
+      const userCredential = await signInWithCredential(auth, credential);
       
-      // Note: On ne peut pas récupérer l'accessToken Google facilement via ce plugin nativement
-      // sans configuration supplémentaire, mais le login Firebase fonctionnera.
-      console.log('[Auth] Connecté (Native) :', result.user.displayName);
-      return result;
+      console.log('[Auth] Connecté via Native SDK :', userCredential.user.displayName);
+      return userCredential;
     }
 
     // ── GESTION WEB CLASSIQUE ─────────────────────────────────────

@@ -1,8 +1,5 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+// ⚠️ Ce fichier est conservé pour compatibilité.
+// Toute la logique Firebase est centralisée dans ./services/firebaseService.ts
+// pour éviter les doubles initialisations (crash Android)
+export { auth, db } from './services/firebaseService';
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-export const auth = getAuth(app);

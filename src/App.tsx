@@ -10,8 +10,9 @@ import { ChevronLeft, AlertCircle, Play, Maximize2, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import ReactPlayer from 'react-player';
 import { Capacitor } from '@capacitor/core';
-import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
-import { BackgroundMode } from '@awesome-cordova-plugins/background-mode';
+// ❌ Supprimé car il causait l'erreur
+// import { BackgroundMode } from '@awesome-cordova-plugins/background-mode';
+
 
 import { usePlayerState } from './hooks/usePlayerState';
 import { useAuth }        from './hooks/useAuth';
@@ -36,6 +37,7 @@ import { saveLocalTrack, getAllLocalTracks } from './services/localDbService';
 import { GoogleAuthProvider } from 'firebase/auth';
 import { Track, Playlist, View, Theme }  from './types';
 import { INITIAL_TRACKS } from './data/initialTracks';
+import { loadUserData, saveUserData } from './services/dbService';
 
 const Player = React.forwardRef<any, any>((props, ref) => {
   const { onDuration, onBuffer, onBufferEnd, ...rest } = props;
@@ -171,39 +173,40 @@ export default function App() {
 
   // ── Initialisation Google Auth & Background Mode (Capacitor) ──────────────
   useEffect(() => {
-    if (Capacitor.isNativePlatform()) {
-      // Configuration Background Mode
-      try {
-        BackgroundMode.enable();
-        BackgroundMode.overrideBackButton();
-        BackgroundMode.setDefaults({
-          title: 'Play-Me',
-          text: 'Musique en cours...',
-          icon: 'ic_launcher',
-          color: '8F00FF',
-          resume: true,
-          hidden: false,
-          bigText: true
-        });
-      } catch (e) {
-        console.warn('[Capacitor] BackgroundMode failed to initialize:', e);
+    if (Capacitor.getPlatform() !== 'web') {
+      // @ts-ignore - On utilise l'objet window pour accéder au plugin Cordova directement
+      const bgMode = (window as any).cordova?.plugins?.backgroundMode;
+      if (bgMode) {
+        try {
+          bgMode.enable();
+          bgMode.overrideBackButton();
+          bgMode.setDefaults({
+            title: 'Play-Me',
+            text: 'Musique en cours...',
+            icon: 'ic_launcher',
+            color: '8F00FF',
+            resume: true,
+            hidden: false,
+            bigText: true
+          });
+          console.log("Background Mode activé !");
+        } catch (e) {
+          console.warn('[Capacitor] BackgroundMode failed to initialize:', e);
+        }
       }
-    } else {
-      // Si on est sur le Web, on initialise GoogleAuth avec l'ID client de Firebase
-      GoogleAuth.initialize({
-        clientId: '742584976934-0nmes6v5qfv9vfhiqgvdcoa9qls9h86i.apps.googleusercontent.com',
-        scopes: ['profile', 'email'],
-        grantOfflineAccess: true,
-      });
     }
   }, []);
 
   // Activer explicitement le mode background quand la lecture commence
   useEffect(() => {
-    if (Capacitor.isNativePlatform() && player.isPlaying) {
-      try {
-        BackgroundMode.enable();
-      } catch {}
+    if (Capacitor.getPlatform() !== 'web' && player.isPlaying) {
+      // @ts-ignore
+      const bgMode = (window as any).cordova?.plugins?.backgroundMode;
+      if (bgMode) {
+        try {
+          bgMode.enable();
+        } catch {}
+      }
     }
   }, [player.isPlaying]);
 
@@ -212,15 +215,13 @@ export default function App() {
   useEffect(() => {
     setIsScanning(true);
     if (user?.uid) {
-      import('./services/dbService').then(({ loadUserData }) => {
-        loadUserData(user.uid).then(data => {
-          if (data?.playlists) setPlaylists(data.playlists);
-          // Local tracks metadata from cloud, but we prefer IndexedDB for actual files
-          getAllLocalTracks().then(dbTracks => {
-            if (dbTracks.length > 0) setLocalTracks(dbTracks);
-            else if (data?.localTracks) setLocalTracks(data.localTracks);
-            setIsScanning(false);
-          });
+      loadUserData(user.uid).then(data => {
+        if (data?.playlists) setPlaylists(data.playlists);
+        // Local tracks metadata from cloud, but we prefer IndexedDB for actual files
+        getAllLocalTracks().then(dbTracks => {
+          if (dbTracks.length > 0) setLocalTracks(dbTracks);
+          else if (data?.localTracks) setLocalTracks(data.localTracks);
+          setIsScanning(false);
         });
       });
     } else {
@@ -296,9 +297,8 @@ export default function App() {
         })
       }));
 
-      import('./services/dbService').then(({ saveUserData }) => {
-        saveUserData(user.uid, { playlists: serializablePlaylists, localTracks: serializableLocalTracks });
-      });
+      saveUserData(user.uid, { playlists: serializablePlaylists, localTracks: serializableLocalTracks });
+
     } else {
       localStorage.setItem('playme_playlists', JSON.stringify(playlists));
       localStorage.setItem('playme_localtracks', JSON.stringify(localTracks));
@@ -318,15 +318,7 @@ export default function App() {
   // ── Restaurer le token OAuth YouTube au rechargement ─────────────────────
   useEffect(() => {
     if (!user) return;
-    // Tente de récupérer le token OAuth depuis la session Firebase en cours
-    import('firebase/auth').then(({ getAuth }) => {
-      const auth = getAuth();
-      auth.currentUser?.getIdTokenResult().catch(() => {});
-      // Utilise le provider Google pour tenter de re-récupérer le credential
-      // Note: le token OAuth n'est disponible qu'après signInWithPopup, pas au reload
-      // On log juste pour informer
-      console.log('[Auth] Utilisateur restauré au reload:', user.displayName, '| Token YouTube: non disponible (reconnexion nécessaire)');
-    });
+    console.log('[Auth] Utilisateur restauré au reload:', user.displayName, '| Token YouTube: non disponible (reconnexion nécessaire)');
   }, [user?.uid]);
 
   // ── Recommandations personnalisées basées sur l'historique ────────────────

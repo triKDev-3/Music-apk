@@ -3,6 +3,8 @@ import { Track } from '../types';
 import { searchYouTube } from '../services/youtubeService';
 import { db } from '../services/localDbService';
 import { INITIAL_TRACKS } from '../data/initialTracks';
+import { loadUserData, saveUserData } from '../services/dbService';
+
 
 interface UsePlayerStateOptions {
   searchResults: Track[];
@@ -49,13 +51,11 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   // ── Chargement Initial (Firestore ou LocalStorage) ──────────────────────────
   useEffect(() => {
     if (user?.uid) {
-      import('../services/dbService').then(({ loadUserData }) => {
-        loadUserData(user.uid).then(data => {
-          if (data) {
-            if (data.favorites) setFavorites(data.favorites);
-            if (data.stats) setStats(prev => ({ ...prev, ...data.stats, recentlyPlayed: data.stats.recentlyPlayed || [] }));
-          }
-        });
+      loadUserData(user.uid).then(data => {
+        if (data) {
+          if (data.favorites) setFavorites(data.favorites);
+          if (data.stats) setStats(prev => ({ ...prev, ...data.stats, recentlyPlayed: data.stats.recentlyPlayed || [] }));
+        }
       });
     } else {
       try { const s = localStorage.getItem('playme_favorites'); if (s) setFavorites(JSON.parse(s)); } catch {}
@@ -72,9 +72,8 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   // ── Persistance (Firestore ou LocalStorage) ─────────────────────────────────
   useEffect(() => {
     if (user?.uid) {
-      import('../services/dbService').then(({ saveUserData }) => {
-        saveUserData(user.uid, { favorites });
-      });
+      saveUserData(user.uid, { favorites });
+
     } else {
       localStorage.setItem('playme_favorites', JSON.stringify(favorites));
     }
@@ -82,9 +81,8 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
 
   useEffect(() => {
     if (user?.uid) {
-      import('../services/dbService').then(({ saveUserData }) => {
-        saveUserData(user.uid, { stats });
-      });
+      saveUserData(user.uid, { stats });
+
     } else {
       localStorage.setItem('playme_stats', JSON.stringify(stats));
     }
