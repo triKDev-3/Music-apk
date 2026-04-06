@@ -52,7 +52,14 @@ export async function searchYouTube(query: string): Promise<Track[]> {
   }
 
   // 2. Si aucune auth, on tente quand même l'API Key ou on bascule au backend
-  if (!_oauthToken && (!YOUTUBE_API_KEY || YOUTUBE_API_KEY === 'YOUR_YOUTUBE_API_KEY' || YOUTUBE_API_KEY === '')) {
+  // Check for missing or placeholder API key
+  const isInvalidKey = !YOUTUBE_API_KEY || 
+                      YOUTUBE_API_KEY === 'YOUR_YOUTUBE_API_KEY' || 
+                      YOUTUBE_API_KEY === '' || 
+                      YOUTUBE_API_KEY === 'undefined' || 
+                      YOUTUBE_API_KEY === 'null';
+
+  if (!_oauthToken && isInvalidKey) {
     return fetchFromBackend(query);
   }
 
@@ -61,7 +68,7 @@ export async function searchYouTube(query: string): Promise<Track[]> {
     const searchUrl = getApiUrl('search', params);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased to 15s timeout
 
     const res = await fetch(searchUrl, { 
       headers: getHeaders(),
@@ -132,7 +139,7 @@ export async function searchYouTube(query: string): Promise<Track[]> {
 /** Assistant pour appeler le backend de secours */
 async function fetchFromBackend(query: string): Promise<Track[]> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased to 15s timeout
     
     try {
         console.log(`[YouTube] Recherche via Backend API pour: "${query}"`);

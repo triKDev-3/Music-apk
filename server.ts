@@ -191,14 +191,17 @@ app.get("/api/search/youtube", async (req, res) => {
     return res.json(cached);
   }
 
-  const API_KEY = process.env.VITE_YOUTUBE_API_KEY || process.env.YOUTUBE_API_KEY || "";
+  const API_KEY = (process.env.VITE_YOUTUBE_API_KEY || process.env.YOUTUBE_API_KEY || "").trim();
   
   try {
-    if (!API_KEY || API_KEY === "YOUR_YOUTUBE_API_KEY") {
+    if (!API_KEY || API_KEY === "YOUR_YOUTUBE_API_KEY" || API_KEY === "undefined" || API_KEY === "null") {
       throw new Error("API_KEY_MISSING");
     }
 
-    const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=20&key=${API_KEY}`);
+    const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=20&key=${API_KEY}`, {
+      signal: AbortSignal.timeout(10000) // 10s timeout
+    });
+    
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.error("YouTube API error, falling back to yt-search:", JSON.stringify(errorData, null, 2));
@@ -206,7 +209,7 @@ app.get("/api/search/youtube", async (req, res) => {
     }
 
     const data = await response.json();
-    const results = data.items.map((item: any) => ({
+    const results = (data.items || []).map((item: any) => ({
       id: item.id.videoId,
       title: item.snippet.title,
       artist: item.snippet.channelTitle,
@@ -223,8 +226,14 @@ app.get("/api/search/youtube", async (req, res) => {
     console.warn("[YouTube Search] Fallback to yt-search due to:", error.message);
     
     try {
-      const r = await yts(query);
-      const results = r.videos.slice(0, 20).map(v => ({
+      // Use Promise.race for timeout with yts
+      const ytsPromise = yts(query);
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('yt-search timeout')), 12000)
+      );
+      
+      const r = await Promise.race([ytsPromise, timeoutPromise]);
+      const results = (r.videos || []).slice(0, 20).map(v => ({
         id: v.videoId,
         title: v.title,
         artist: v.author.name,
