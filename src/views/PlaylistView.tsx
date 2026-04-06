@@ -161,7 +161,7 @@ export function PlaylistView({
                   <hr className="border-white/5 my-1" />
                   <button 
                     onClick={() => {
-                      alert('Lien de partage copié (simulation)');
+                      console.log('Lien de partage copié (simulation)');
                       setShowMenu(false);
                     }}
                     className="flex items-center gap-3 w-full px-4 py-3 rounded-xl hover:bg-white/10 text-sm font-bold text-left transition-colors"

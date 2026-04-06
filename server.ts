@@ -3,9 +3,10 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenAI, Type } from "@google/genai";
-import { initDatabase, getCachedSearch, setCachedSearch, isUsingMemoryCache } from "./server/db.js";
+import { initDatabase, getCachedSearch, setCachedSearch, isUsingMemoryCache } from "./server/db";
 import "dotenv/config";
 import { spawn } from "child_process";
+import yts from "yt-search";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,7 +16,7 @@ initDatabase();
 const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 
 app.use(express.json({ limit: "50mb" }));
 
@@ -107,32 +108,9 @@ app.get("/api/stream", async (req, res) => {
   const id = req.query.id as string;
   if (!id) return res.status(400).send("ID is required");
 
-  console.log(`[Stream] Requesting stream for: ${id}`);
+  console.log(`[Stream] Streaming via ytdl-core pour: ${id}`);
   
-  try {
-    const { default: ytdl } = await import("@distube/ytdl-core");
-    const url = `https://www.youtube.com/watch?v=${id}`;
-    
-    // On Vercel, we try to get the direct URL to avoid the 10s timeout
-    const info = await ytdl.getInfo(url);
-    const format = ytdl.chooseFormat(info.formats, { 
-      filter: "audioonly",
-      quality: "highestaudio"
-    });
-
-    if (format && format.url) {
-      console.log(`[Stream] Redirecting to direct URL for: ${id}`);
-      return res.redirect(format.url);
-    }
-
-    throw new Error("No suitable format found");
-  } catch (error: any) {
-    console.error("[Stream] Extraction failed:", error.message);
-    if (process.env.VERCEL) {
-      return res.status(500).send("Stream extraction failed on Vercel");
-    }
-    
-    // Fallback locally only
+  const startYtDlpFallback = () => {
     console.log(`[Stream] Fallback vers yt-dlp pour: ${id}`);
     const ytDlp = spawn("yt-dlp", [
       "-f", "bestaudio",
@@ -143,14 +121,62 @@ app.get("/api/stream", async (req, res) => {
     ]);
 
     let streamUrl = "";
-    ytDlp.stdout.on("data", (data) => streamUrl += data.toString());
+    ytDlp.stdout.on("data", (data) => {
+      streamUrl += data.toString();
+    });
+
     ytDlp.on("close", (code) => {
       if (code === 0 && streamUrl.trim()) {
         res.redirect(streamUrl.trim());
       } else {
-        if (!res.headersSent) res.status(500).send("Stream fallback failed");
+        if (!res.headersSent) res.status(500).send("Stream fallback extraction failed");
       }
     });
+
+    ytDlp.on("error", (err) => {
+      console.error("[Stream] yt-dlp non disponible ou erreur:", err);
+      if (!res.headersSent) res.status(500).send("Stream extraction failed");
+    });
+
+    req.on("close", () => {
+      ytDlp.kill();
+    });
+  };
+
+  try {
+    const { default: ytdl } = await import("@distube/ytdl-core");
+    const url = `https://www.youtube.com/watch?v=${id}`;
+    
+    const stream = ytdl(url, {
+      filter: "audioonly",
+      quality: "highestaudio",
+      highWaterMark: 1 << 25
+    });
+    
+    let hasError = false;
+    stream.on("error", (err) => {
+      console.error(`[ytdl-core error]`, err);
+      hasError = true;
+      if (!res.headersSent) {
+        startYtDlpFallback();
+      } else {
+        res.end();
+      }
+    });
+
+    stream.on("info", () => {
+      if (!hasError) {
+        res.setHeader("Content-Type", "audio/mpeg");
+        stream.pipe(res);
+      }
+    });
+
+    req.on("close", () => {
+      if (stream.destroy) stream.destroy();
+    });
+  } catch (error) {
+    console.error("[Stream] Échec initialisation ytdl-core:", error);
+    startYtDlpFallback();
   }
 });
 
@@ -165,60 +191,56 @@ app.get("/api/search/youtube", async (req, res) => {
     return res.json(cached);
   }
 
-  const SPOOF_UA = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36";
+  const API_KEY = process.env.VITE_YOUTUBE_API_KEY || process.env.YOUTUBE_API_KEY || "";
+  if (!API_KEY || API_KEY === "YOUR_YOUTUBE_API_KEY") {
+    console.warn("YouTube API key not set or is a placeholder");
+    return res.status(401).json({ error: "YouTube API key is missing or invalid. Please set VITE_YOUTUBE_API_KEY." });
+  }
 
   try {
-    const ytSearchModule: any = await import("yt-search");
-    const yt_search = ytSearchModule.default || ytSearchModule;
-    
-    console.log(`[YouTube Search] Querying: ${query}`);
-    const r = await yt_search({ query, agent: SPOOF_UA }); // Tentative de spoof UA si supporté par yt-search
-    const videos = r.videos.slice(0, 20);
-    const results = videos.map((item: any) => ({
-      id: item.videoId,
-      title: item.title,
-      artist: item.author.name,
+    const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=20&key=${API_KEY}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("YouTube API error, falling back to yt-dlp:", JSON.stringify(errorData, null, 2));
+      throw new Error("API_KEY_INVALID");
+    }
+
+    const data = await response.json();
+    const results = data.items.map((item: any) => ({
+      id: item.id.videoId,
+      title: item.snippet.title,
+      artist: item.snippet.channelTitle,
       album: "YouTube Video",
-      coverUrl: item.thumbnail,
-      duration: item.seconds,
-      youtubeId: item.videoId,
+      coverUrl: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.default?.url,
+      duration: 0,
+      youtubeId: item.id.videoId,
       source: "youtube"
     }));
 
-    if (results.length > 0) {
-      await setCachedSearch(query, results, "search_cache");
-      return res.json(results);
-    }
-    throw new Error("No results found via yt-search");
+    await setCachedSearch(query, results, "search_cache");
+    res.json(results);
   } catch (error: any) {
-    console.error(`[YouTube Search] Error with yt-search: ${error.message}. Fallback to Invidious.`);
+    console.warn("[YouTube Search] Fallback to yt-search due to:", error.message);
     
-    // Fallback Invidious on Backend
     try {
-      const invidiousRes = await fetch(`https://invidious.snopyta.org/api/v1/search?q=${encodeURIComponent(query)}&type=video`, {
-        headers: { "User-Agent": SPOOF_UA }
-      });
-      const data: any = await invidiousRes.json();
-      const results = data.map((item: any) => ({
-        id: item.videoId,
-        title: item.title,
-        artist: item.author,
-        album: "Invidious Proxy",
-        coverUrl: item.videoThumbnails?.[0]?.url || `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`,
-        duration: item.lengthSeconds,
-        youtubeId: item.videoId,
-        source: "youtube"
+      const r = await yts(query);
+      const results = r.videos.slice(0, 20).map(v => ({
+        id: v.videoId,
+        title: v.title,
+        artist: v.author.name,
+        album: 'YouTube Music',
+        coverUrl: v.image || v.thumbnail,
+        duration: v.seconds,
+        youtubeId: v.videoId,
+        source: 'youtube'
       }));
       
-      if (results.length > 0) {
-        await setCachedSearch(query, results, "search_cache");
-        return res.json(results);
-      }
-    } catch (invError: any) {
-      console.error("[Invidious Search] Failed:", invError.message);
+      await setCachedSearch(query, results, "search_cache");
+      res.json(results);
+    } catch (fallbackError) {
+      console.error("[YouTube Search] Fallback failed:", fallbackError);
+      res.status(500).json({ error: "YouTube search failed." });
     }
-
-    res.status(500).json({ error: "Search failed everywhere", details: error.message });
   }
 });
 

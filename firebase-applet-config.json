@@ -1,9 +1,9 @@
 {
   "projectId": "playme-26da2",
-  "appId": "1:742584976934:web:9ed2bfa035a572a32d48e7",
+  "appId": "1:742584976934:web:559c6a228b1a16d32d48e7",
   "apiKey": "AIzaSyDZQXDbCCaUdQDAcCk56CBcl60Rd1H8ugQ",
   "authDomain": "playme-26da2.firebaseapp.com",
-  "firestoreDatabaseId": "(default)",
+  "firestoreDatabaseId": "ai-studio-ce36c36d-581d-41b2-b637-57e526e04a73",
   "storageBucket": "playme-26da2.firebasestorage.app",
   "messagingSenderId": "742584976934",
   "measurementId": ""

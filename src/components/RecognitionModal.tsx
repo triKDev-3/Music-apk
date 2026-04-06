@@ -49,7 +49,8 @@ export function RecognitionModal({ isOpen, onClose, onResult }: RecognitionModal
       };
 
       mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         setState('IDENTIFYING');
         
         try {

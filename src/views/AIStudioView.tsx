@@ -50,7 +50,7 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ onPlayTrack }) => {
       setGeneratedAudio(result);
     } catch (err) {
       console.error('Generation failed:', err);
-      alert('Échec de la génération. Assurez-vous d\'avoir configuré une clé API valide.');
+      console.error('Échec de la génération. Assurez-vous d\'avoir configuré une clé API valide.');
     } finally {
       setIsGenerating(false);
     }

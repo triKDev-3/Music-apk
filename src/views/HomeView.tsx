@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Smile, Zap, Heart as HeartIcon, Dumbbell, Play, History, TrendingUp, Radio, Music, Moon, Flame, ChevronLeft, Upload } from 'lucide-react';
+import { Smile, Zap, Heart as HeartIcon, Dumbbell, Play, History, TrendingUp, Radio, Music, Moon, Flame, ChevronLeft } from 'lucide-react';
 import { Track } from '../types';
 import { INITIAL_TRACKS } from '../data/initialTracks';
 import { TrackCard } from '../components/ui/TrackCard';
@@ -15,27 +15,20 @@ interface HomeViewProps {
   liveTracks: Track[];
   recommendations?: Track[];
   isRecommendationsLoading?: boolean;
-  localTracks?: Track[];
-  onImportClick?: (files: FileList | File[]) => void;
 }
+
+
 
 export function HomeView({ 
   currentTrack, playTrack, handleMoodClick, 
   isMoodLoading, recentlyPlayed, liveTracks,
-  recommendations = [], isRecommendationsLoading = false,
-  localTracks = [], onImportClick
+  recommendations = [], isRecommendationsLoading = false
 }: HomeViewProps) {
   const [showAllRecent, setShowAllRecent] = React.useState(false);
-  const displayedRecent = showAllRecent ? recentlyPlayed : recentlyPlayed?.slice(0, 6);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const displayedRecent = showAllRecent ? recentlyPlayed : recentlyPlayed?.slice(0, 5);
 
   return (
     <div className="py-6 space-y-16">
-      <input 
-        type="file" ref={fileInputRef} hidden multiple accept="audio/*" 
-        onChange={(e) => e.target.files && onImportClick?.(e.target.files)} 
-      />
-
       {/* ── Hero Section Premium ── */}
       <section className="relative h-[300px] md:h-[400px] rounded-[40px] overflow-hidden group shadow-2xl">
         <div className="absolute inset-0 bg-gradient-to-r from-violet-900/40 via-black/60 to-transparent z-10" />
@@ -84,78 +77,16 @@ export function HomeView({
             </button>
           </motion.div>
         </div>
+
+        {/* Floating Decorative Elements */}
+        <div className="absolute top-10 right-10 w-32 h-32 bg-violet-600/20 rounded-full blur-[80px] animate-pulse" />
+        <div className="absolute bottom-10 right-40 w-48 h-48 bg-emerald-500/10 rounded-full blur-[100px] animate-pulse delay-700" />
       </section>
 
-      <div className="space-y-16">
-        
-        {/* 1. Récemment écouté (Horizontal) */}
-        {recentlyPlayed?.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
-                  <History size={24} className="text-emerald-500" />
-                </div>
-                <h2 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
-                  Tes dernières écoutes
-                </h2>
-              </div>
-              {recentlyPlayed.length > 5 && (
-                <button 
-                  onClick={() => setShowAllRecent(!showAllRecent)}
-                  className="group flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/40 hover:text-white transition-all bg-white/5 hover:bg-white/10 px-5 py-2.5 rounded-full border border-white/5 shadow-inner"
-                >
-                  {showAllRecent ? 'Réduire' : `Tout voir (${recentlyPlayed.length})`}
-                  <ChevronLeft size={14} className={clsx("transition-transform duration-300", !showAllRecent ? "-rotate-90" : "rotate-90")} />
-                </button>
-              )}
-            </div>
+      <div className="space-y-12">
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {displayedRecent.map((track, idx) => (
-                <motion.div
-                  key={track.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: idx * 0.05 }}
-                  className="group flex items-center h-[88px] p-3 rounded-2xl overflow-hidden transition-all cursor-pointer hover:shadow-[0_15px_40px_rgba(0,0,0,0.4)] border border-white/5 hover:border-violet-500/30 backdrop-blur-md relative"
-                  style={{ background: 'rgba(255,255,255,0.03)' }}
-                  onClick={() => playTrack(track, recentlyPlayed)}
-                  whileHover={{ scale: 1.02, backgroundColor: 'rgba(143,0,255,0.08)' }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <div className="relative flex-shrink-0">
-                    <img src={track.coverUrl} alt={track.title} className="w-14 h-14 md:w-16 md:h-16 rounded-xl object-cover shadow-lg group-hover:scale-105 transition-transform duration-500" />
-                    {currentTrack?.id === track.id && (
-                      <div className="absolute inset-0 bg-violet-600/40 rounded-xl flex items-center justify-center backdrop-blur-[1.5px]">
-                        <div className="flex gap-1 items-end h-4">
-                          <div className="w-1 h-2 bg-white rounded-full animate-[bar-grow_1s_infinite]" />
-                          <div className="w-1 h-3 bg-white rounded-full animate-[bar-grow_1.2s_infinite]" />
-                          <div className="w-1 h-1.5 bg-white rounded-full animate-[bar-grow_0.8s_infinite]" />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 px-4 min-w-0">
-                    <p className="font-bold truncate text-sm md:text-base mb-0.5 group-hover:text-violet-400 transition-colors" style={{ color: currentTrack?.id === track.id ? '#A855F7' : 'white' }}>
-                      {track.title}
-                    </p>
-                    <p className="text-xs text-white/40 truncate font-medium uppercase tracking-wider">{track.artist}</p>
-                  </div>
-                  <button className="mr-2 w-10 h-10 bg-violet-600 rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 transition-all hover:scale-110 flex-shrink-0 transform translate-x-4 group-hover:translate-x-0">
-                    <Play size={18} fill="white" className="ml-0.5" />
-                  </button>
-                </motion.div>
-              ))}
-            </div>
-          </motion.section>
-        )}
-
-        {/* 2. Musique Locale (avec état vide) */}
+      {/* ── Pour toi (recommandations personnalisées) ── */}
+      {(isRecommendationsLoading || recommendations.length > 0) && (
         <motion.section
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -163,126 +94,177 @@ export function HomeView({
         >
           <div className="flex items-center gap-3 mb-8">
             <div className="p-2.5 rounded-2xl bg-violet-500/10 border border-violet-500/20">
-              <Music size={24} className="text-violet-500" />
+              <Zap size={24} className="text-violet-500 fill-violet-500/30" />
             </div>
             <h2 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
-              Ma Musique Locale
+              ✨ Recommandés pour toi
             </h2>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-            {localTracks.length === 0 ? (
-              <motion.div 
-                whileHover={{ scale: 1.02 }}
-                onClick={() => fileInputRef.current?.click()}
-                className="aspect-square rounded-3xl border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-4 group cursor-pointer hover:border-violet-500/50 hover:bg-violet-500/5 transition-all"
-              >
-                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-violet-500 group-hover:text-white transition-all shadow-inner">
-                  <Upload size={32} />
-                </div>
-                <div className="text-center px-4">
-                  <p className="font-bold text-sm">Ajouter des fichiers</p>
-                  <p className="text-[10px] text-white/40 uppercase tracking-widest mt-1">Importer vos MP3</p>
-                </div>
-              </motion.div>
-            ) : (
-              localTracks.slice(0, 12).map(track => (
-                <TrackCard 
-                  key={track.id} 
-                  track={track} 
-                  onPlay={() => playTrack(track, localTracks)} 
-                  isActive={currentTrack?.id === track.id} 
-                />
-              ))
-            )}
-          </div>
-        </motion.section>
-
-        {/* 3. Recommandations */}
-        {(isRecommendationsLoading || recommendations.length > 0) && (
-          <motion.section
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <div className="flex items-center gap-3 mb-8">
-              <div className="p-2.5 rounded-2xl bg-sky-500/10 border border-sky-500/20">
-                <Zap size={24} className="text-sky-500" />
-              </div>
-              <h2 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
-                ✨ Recommandés pour toi
-              </h2>
-            </div>
-
-            {isRecommendationsLoading ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="rounded-2xl overflow-hidden animate-pulse" style={{ background: 'var(--bg-card)' }}>
-                    <div className="w-full aspect-square bg-white/5" />
-                    <div className="p-4 space-y-2">
-                      <div className="h-3 bg-white/10 rounded w-3/4" />
-                      <div className="h-2 bg-white/5 rounded w-1/2" />
-                    </div>
+          {isRecommendationsLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="rounded-2xl overflow-hidden animate-pulse" style={{ background: 'var(--bg-card)' }}>
+                  <div className="w-full aspect-square bg-white/5" />
+                  <div className="p-4 space-y-2">
+                    <div className="h-3 bg-white/10 rounded w-3/4" />
+                    <div className="h-2 bg-white/5 rounded w-1/2" />
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-                {recommendations.map(track => (
-                  <TrackCard key={track.id} track={track} onPlay={() => playTrack(track, recommendations)} isActive={currentTrack?.id === track.id} />
-                ))}
-              </div>
-            )}
-          </motion.section>
-        )}
-
-        {/* 4. Tendances */}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <motion.div 
+              variants={{
+                show: { transition: { staggerChildren: 0.05 } }
+              }}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
+            >
+              {recommendations.map(track => (
+                <motion.div
+                  key={track.id}
+                  variants={{
+                    hidden: { opacity: 0, scale: 0.9, y: 20 },
+                    show: { opacity: 1, scale: 1, y: 0 }
+                  }}
+                >
+                  <TrackCard track={track} onPlay={() => playTrack(track, recommendations)} isActive={currentTrack?.id === track.id} />
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+        </motion.section>
+      )}
+      {/* Récemment écouté - Nouveau Look Premium */}
+      {recentlyPlayed?.length > 0 && (
         <motion.section
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <div className="flex items-center gap-3 mb-8">
-            <div className="p-2.5 rounded-2xl bg-orange-500/10 border border-orange-500/20">
-              <TrendingUp size={24} className="text-orange-500" />
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+                <History size={24} className="text-emerald-500" />
+              </div>
+              <h2 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
+                Tes dernières écoutes
+              </h2>
             </div>
-            <h2 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
-              Tendances & Classiques
-            </h2>
+            {recentlyPlayed.length > 5 && (
+              <button 
+                onClick={() => setShowAllRecent(!showAllRecent)}
+                className="group flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/40 hover:text-white transition-all bg-white/5 hover:bg-white/10 px-5 py-2.5 rounded-full border border-white/5 shadow-inner"
+              >
+                {showAllRecent ? 'Réduire' : `Tout voir (${recentlyPlayed.length})`}
+                <ChevronLeft size={14} className={clsx("transition-transform duration-300", !showAllRecent ? "-rotate-90" : "rotate-90")} />
+              </button>
+            )}
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-            {INITIAL_TRACKS.map(track => (
-              <TrackCard key={track.id} track={track} onPlay={() => playTrack(track, INITIAL_TRACKS)} isActive={currentTrack?.id === track.id} />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {displayedRecent.map((track, idx) => (
+              <motion.div
+                key={track.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: idx * 0.05 }}
+                className="group flex items-center p-3 rounded-2xl overflow-hidden transition-all cursor-pointer hover:shadow-[0_15px_40px_rgba(0,0,0,0.4)] border border-white/5 hover:border-violet-500/30 backdrop-blur-md relative"
+                style={{ background: 'rgba(255,255,255,0.03)' }}
+                onClick={() => playTrack(track, recentlyPlayed)}
+                whileHover={{ scale: 1.02, backgroundColor: 'rgba(143,0,255,0.08)' }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <div className="relative flex-shrink-0">
+                   <img src={track.coverUrl} alt={track.title} className="w-14 h-14 md:w-16 md:h-16 rounded-xl object-cover shadow-lg group-hover:scale-105 transition-transform duration-500" />
+                   {currentTrack?.id === track.id && (
+                     <div className="absolute inset-0 bg-violet-600/40 rounded-xl flex items-center justify-center backdrop-blur-[1.5px]">
+                        <div className="flex gap-1 items-end h-4">
+                           <div className="w-1 h-2 bg-white rounded-full animate-[bar-grow_1s_infinite]" />
+                           <div className="w-1 h-3 bg-white rounded-full animate-[bar-grow_1.2s_infinite]" />
+                           <div className="w-1 h-1.5 bg-white rounded-full animate-[bar-grow_0.8s_infinite]" />
+                        </div>
+                     </div>
+                   )}
+                </div>
+                <div className="flex-1 px-4 min-w-0">
+                  <p className="font-bold truncate text-sm md:text-base mb-0.5 group-hover:text-violet-400 transition-colors" style={{ color: currentTrack?.id === track.id ? '#A855F7' : 'white' }}>
+                    {track.title}
+                  </p>
+                  <p className="text-xs text-white/40 truncate font-medium uppercase tracking-wider">{track.artist}</p>
+                </div>
+                <button className="mr-2 w-10 h-10 bg-violet-600 rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 transition-all hover:scale-110 flex-shrink-0 transform translate-x-4 group-hover:translate-x-0">
+                  <Play size={18} fill="white" className="ml-0.5" />
+                </button>
+              </motion.div>
             ))}
           </div>
         </motion.section>
-        
-        {/* 5. Live */}
-        {liveTracks?.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-                <Radio size={24} className="text-red-500 animate-pulse" />
-                En Direct / Live
-              </h2>
-              <span className="text-xs font-black px-2 py-1 bg-red-500 text-white rounded-full uppercase tracking-tighter animate-pulse">Live</span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-              {liveTracks.map(track => (
-                <TrackCard 
-                  key={track.id} 
-                  track={track} 
-                  onPlay={() => playTrack(track, liveTracks)} 
-                  isActive={currentTrack?.id === track.id} 
-                />
-              ))}
-            </div>
-          </motion.section>
-        )}
+      )}
+
+      {/* Top Musiques Staggered */}
+      <motion.section
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+      >
+        <div className="flex items-center gap-3 mb-8">
+           <div className="p-2.5 rounded-2xl bg-orange-500/10 border border-orange-500/20">
+              <TrendingUp size={24} className="text-orange-500" />
+           </div>
+           <h2 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
+             Tendances & Classiques
+           </h2>
+        </div>
+        <motion.div 
+           variants={{
+            show: { transition: { staggerChildren: 0.05 } }
+           }}
+           initial="hidden"
+           whileInView="show"
+           viewport={{ once: true }}
+           className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
+        >
+          {INITIAL_TRACKS.map(track => (
+            <motion.div
+              key={track.id}
+              variants={{
+                hidden: { opacity: 0, scale: 0.8 },
+                show: { opacity: 1, scale: 1 }
+              }}
+            >
+              <TrackCard track={track} onPlay={() => playTrack(track, INITIAL_TRACKS)} isActive={currentTrack?.id === track.id} />
+            </motion.div>
+          ))}
+        </motion.div>
+      </motion.section>
+      
+      {/* Flux en Direct */}
+      {liveTracks?.length > 0 && (
+        <section>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+              <Radio size={24} className="text-red-500 animate-pulse" />
+              En Direct / Live
+            </h2>
+            <span className="text-xs font-black px-2 py-1 bg-red-500 text-white rounded-full uppercase tracking-tighter animate-pulse">Live</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+            {liveTracks.map(track => (
+              <TrackCard 
+                key={track.id} 
+                track={track} 
+                onPlay={() => playTrack(track, liveTracks)} 
+                isActive={currentTrack?.id === track.id} 
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+
       </div>
     </div>
   );

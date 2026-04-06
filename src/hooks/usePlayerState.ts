@@ -3,8 +3,6 @@ import { Track } from '../types';
 import { searchYouTube } from '../services/youtubeService';
 import { db } from '../services/localDbService';
 import { INITIAL_TRACKS } from '../data/initialTracks';
-import { loadUserData, saveUserData } from '../services/dbService';
-
 
 interface UsePlayerStateOptions {
   searchResults: Track[];
@@ -51,11 +49,13 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   // ── Chargement Initial (Firestore ou LocalStorage) ──────────────────────────
   useEffect(() => {
     if (user?.uid) {
-      loadUserData(user.uid).then(data => {
-        if (data) {
-          if (data.favorites) setFavorites(data.favorites);
-          if (data.stats) setStats(prev => ({ ...prev, ...data.stats, recentlyPlayed: data.stats.recentlyPlayed || [] }));
-        }
+      import('../services/dbService').then(({ loadUserData }) => {
+        loadUserData(user.uid).then(data => {
+          if (data) {
+            if (data.favorites) setFavorites(data.favorites);
+            if (data.stats) setStats(prev => ({ ...prev, ...data.stats, recentlyPlayed: data.stats.recentlyPlayed || [] }));
+          }
+        });
       });
     } else {
       try { const s = localStorage.getItem('playme_favorites'); if (s) setFavorites(JSON.parse(s)); } catch {}
@@ -72,8 +72,9 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   // ── Persistance (Firestore ou LocalStorage) ─────────────────────────────────
   useEffect(() => {
     if (user?.uid) {
-      saveUserData(user.uid, { favorites });
-
+      import('../services/dbService').then(({ saveUserData }) => {
+        saveUserData(user.uid, { favorites });
+      });
     } else {
       localStorage.setItem('playme_favorites', JSON.stringify(favorites));
     }
@@ -81,8 +82,9 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
 
   useEffect(() => {
     if (user?.uid) {
-      saveUserData(user.uid, { stats });
-
+      import('../services/dbService').then(({ saveUserData }) => {
+        saveUserData(user.uid, { stats });
+      });
     } else {
       localStorage.setItem('playme_stats', JSON.stringify(stats));
     }
@@ -184,19 +186,17 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
       setActiveQueue(related.length > 0 ? related : [track]);
     }
 
-    // Empêcher de relancer si c'est déjà en cours (évite le double-déclenchement au clic)
-    if (currentTrackRef.current?.id === track.id && isPlaying) {
-       return;
-    }
-    
-    // Si on demande de jouer le même morceau mais qu'il est en pause, on le relance semplicemente
+    // Si on demande de jouer le même morceau, on force le redémarrage
     if (currentTrackRef.current?.id === track.id) {
-       if (!isClipModeRef.current && audioRef.current) {
-         // Déjà initialisé via useEffect, on s'assure juste du play()
-         audioRef.current.play().catch(() => {});
-       }
-       setIsPlaying(true);
-       return;
+      if (!isClipModeRef.current && audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => {});
+      } else if (reactPlayerRef.current && typeof reactPlayerRef.current.seekTo === 'function') {
+        reactPlayerRef.current.seekTo(0);
+      }
+      setPlayed(0);
+      setIsPlaying(true);
+      return;
     }
 
     console.log('[Player] Playing:', track.title, '| ID:', track.youtubeId);
@@ -289,26 +289,19 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
       skipToNextImpl(false);
     }
   }, [skipToNextImpl]);
-  // ── Audio HTML5 (Fichiers importés uniquement) ───────────────
+
+  // ── Audio HTML5 (Fichiers importés & Proxy local Node.js) ───────────────
   useEffect(() => {
     const audio = audioRef.current;
-    const isLocal = currentTrack?.id.startsWith('local-');
     
-    // On n'utilise la balise <audio> UNIQUEMENT pour les fichiers locaux.
-    // Les musiques YouTube utilisent ReactPlayer pour éviter les erreurs 500 du backend sur Vercel.
-    const shouldPlayAudio = isPlaying && isLocal;
+    // Si nous n'utilisons pas la balise audio HTML5 (ex: mode vidéo ReactPlayer activé ou pas de flux backend)
+    // On autorise la lecture audio même en mode clip si on n'a pas encore de youtubeId (ex: recherche en cours)
+    // ou si c'est un fichier local (on joue le local en attendant le clip)
+    const hasValidYoutubeId = currentTrack?.youtubeId && currentTrack.youtubeId !== 'local-blob';
+    const shouldPlayAudio = isPlaying && (!isClipMode || !hasValidYoutubeId);
 
-    if (!audio || !localUrl || !isLocal || !isPlaying) {
-       if (audio && !audio.paused && (isPlaying === false || isLocal === false)) {
-          audio.pause();
-          console.log('[Audio] Paused - isLocal:', isLocal, 'isPlaying:', isPlaying);
-       }
-       return;
-    }
-    
-    // Si l'URL n'est pas encore un Blob URL pour un fichier local, on attend
-    if (isLocal && !localUrl.startsWith('blob:')) {
-       console.log('[Audio] Waiting for blob URL...');
+    if (!audio || !localUrl || !shouldPlayAudio) {
+       if (audio && !audio.paused) audio.pause();
        return;
     }
 
@@ -353,16 +346,26 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
     audio.addEventListener('timeupdate', onTimeUpdate);
     audio.addEventListener('error', onError);
 
-    // Démarrer la lecture locale
-    const playPromise = audio.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(e => {
-        if (e.name !== 'AbortError') {
-          console.error("Local play exception:", e);
-          setIsPlaying(false);
-          setHasError(true);
+    if (isPlaying) {
+      if (!localUrl) {
+        setIsLoading(true);
+      } else {
+        if (audio.readyState >= 3) setIsLoading(false);
+        else setIsLoading(true);
+        
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(e => {
+            if (e.name !== 'AbortError') {
+              console.error("Local play error:", e);
+              setIsPlaying(false);
+              setHasError(true);
+            }
+          });
         }
-      });
+      }
+    } else {
+      audio.pause();
     }
 
     return () => { 
@@ -372,7 +375,7 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('error', onError);
     };
-  }, [isPlaying, currentTrack?.id, isMuted, volume, localUrl]);
+  }, [isPlaying, currentTrack, isMuted, volume, localUrl]);
 
   // ── Volume audio local en temps réel ─────────────────────────────────────
   useEffect(() => {
@@ -424,16 +427,10 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   }, []);
 
   const handleDurationChange = useCallback((d: number) => {
+    // ReactPlayer onDuration returns the duration number directly
     if (typeof d === 'number' && d > 0) {
       setDuration(d);
-      setIsLoading(false); // On a la durée, c'est que c'est prêt
     }
-  }, []);
-
-  const handleError = useCallback((e: any) => {
-    console.error('[Player Error]', e);
-    setHasError(true);
-    setIsLoading(false);
   }, []);
 
   const handleDuration = useCallback((d: number) => {
@@ -555,7 +552,6 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
     playerRef,    reactPlayerRef, audioRef,
     playTrack,    toggleFavorite,
     handleTimeUpdate, handleDurationChange, handleSeekChange, handleReady,
-    handleError,
     formatTime,
     skipToNext: skipToNextImpl,
     skipToPrev: skipToPrevImpl,

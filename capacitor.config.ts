@@ -5,9 +5,10 @@ const config: CapacitorConfig = {
   appName: 'Play Me',
   webDir: 'dist',
   plugins: {
-    FirebaseAuthentication: {
-      skipNativeAuth: false,
-      providers: ['google.com'],
+    GoogleAuth: {
+      scopes: ['profile', 'email'],
+      serverClientId: '742584976934-0nmes6v5qfv9vfhiqgvdcoa9qls9h86i.apps.googleusercontent.com',
+      forceCodeForRefreshToken: true,
     },
   },
 };

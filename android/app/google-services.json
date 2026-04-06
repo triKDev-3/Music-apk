@@ -7,20 +7,12 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:742584976934:android:f4cd66fc0b0fdcec2d48e7",
+        "mobilesdk_app_id": "1:742584976934:android:eaf55fb6c789a5f22d48e7",
         "android_client_info": {
           "package_name": "com.trikdev.playme"
         }
       },
       "oauth_client": [
-        {
-          "client_id": "742584976934-8su40jcv7hqrobgjd46t7093c44a4bbd.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.trikdev.playme",
-            "certificate_hash": "63c94d3c127275b893bd279137aa66eeb36f33ca"
-          }
-        },
         {
           "client_id": "742584976934-0nmes6v5qfv9vfhiqgvdcoa9qls9h86i.apps.googleusercontent.com",
           "client_type": 3

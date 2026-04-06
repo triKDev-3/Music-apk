@@ -10,9 +10,7 @@ import { ChevronLeft, AlertCircle, Play, Maximize2, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import ReactPlayer from 'react-player';
 import { Capacitor } from '@capacitor/core';
-// ❌ Supprimé car il causait l'erreur
-// import { BackgroundMode } from '@awesome-cordova-plugins/background-mode';
-
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 import { usePlayerState } from './hooks/usePlayerState';
 import { useAuth }        from './hooks/useAuth';
@@ -37,7 +35,6 @@ import { saveLocalTrack, getAllLocalTracks } from './services/localDbService';
 import { GoogleAuthProvider } from 'firebase/auth';
 import { Track, Playlist, View, Theme }  from './types';
 import { INITIAL_TRACKS } from './data/initialTracks';
-import { loadUserData, saveUserData } from './services/dbService';
 
 const Player = React.forwardRef<any, any>((props, ref) => {
   const { onDuration, onBuffer, onBufferEnd, ...rest } = props;
@@ -54,44 +51,49 @@ const Player = React.forwardRef<any, any>((props, ref) => {
 });
 Player.displayName = 'Player';
 
-class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: any }> {
-  constructor(props: { children: React.ReactNode }) {
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: any;
+}
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(error: any) {
+  static getDerivedStateFromError(error: any): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: any, errorInfo: any) {
+  override componentDidCatch(error: any, errorInfo: any) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       let errorMessage = "Une erreur inattendue s'est produite.";
       try {
-        if (this.state.error?.message) {
-          const parsedError = JSON.parse(this.state.error.message);
-          if (parsedError.error) {
-            errorMessage = `Erreur Firestore (${parsedError.operationType}) : ${parsedError.error}`;
-          }
+        const parsedError = JSON.parse(this.state.error.message);
+        if (parsedError.error) {
+          errorMessage = `Erreur Firestore (${parsedError.operationType}) : ${parsedError.error}`;
         }
       } catch (e) {
-        errorMessage = this.state.error?.message || errorMessage;
+        errorMessage = this.state.error.message || errorMessage;
       }
 
       return (
-        <div className="flex flex-col items-center justify-center h-full min-h-screen space-y-4 p-8 text-center bg-black">
-          <div className="p-4 bg-red-500/10 rounded-full">
-            <X size={48} className="text-red-500" />
-          </div>
-          <h2 className="text-2xl font-black text-white">Oops ! Quelque chose a mal tourné.</h2>
-          <p className="text-white/40 max-w-md">{errorMessage}</p>
-          <button 
+        <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
+          <h1 className="text-2xl font-bold mb-2">Oups ! Quelque chose s'est mal passé.</h1>
+          <p className="text-gray-400 mb-6 max-w-md">{errorMessage}</p>
+          <button
             onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-violet-600 text-white font-bold rounded-full hover:bg-violet-700 transition-colors"
+            className="px-6 py-2 bg-white text-black rounded-full font-medium hover:bg-gray-200 transition-colors"
           >
             Recharger l'application
           </button>
@@ -171,57 +173,19 @@ export default function App() {
   const { user, loading: authLoading } = useAuth();
   const player = usePlayerState({ searchResults, user });
 
-  // ── Initialisation Google Auth & Background Mode (Capacitor) ──────────────
-  useEffect(() => {
-    if (Capacitor.getPlatform() !== 'web') {
-      // @ts-ignore - On utilise l'objet window pour accéder au plugin Cordova directement
-      const bgMode = (window as any).cordova?.plugins?.backgroundMode;
-      if (bgMode) {
-        try {
-          bgMode.enable();
-          bgMode.overrideBackButton();
-          bgMode.setDefaults({
-            title: 'Play-Me',
-            text: 'Musique en cours...',
-            icon: 'ic_launcher',
-            color: '8F00FF',
-            resume: true,
-            hidden: false,
-            bigText: true
-          });
-          console.log("Background Mode activé !");
-        } catch (e) {
-          console.warn('[Capacitor] BackgroundMode failed to initialize:', e);
-        }
-      }
-    }
-  }, []);
-
-  // Activer explicitement le mode background quand la lecture commence
-  useEffect(() => {
-    if (Capacitor.getPlatform() !== 'web' && player.isPlaying) {
-      // @ts-ignore
-      const bgMode = (window as any).cordova?.plugins?.backgroundMode;
-      if (bgMode) {
-        try {
-          bgMode.enable();
-        } catch {}
-      }
-    }
-  }, [player.isPlaying]);
-
-
   // ── Chargement Initial (Firestore ou LocalStorage) ──────────────────────────
   useEffect(() => {
     setIsScanning(true);
     if (user?.uid) {
-      loadUserData(user.uid).then(data => {
-        if (data?.playlists) setPlaylists(data.playlists);
-        // Local tracks metadata from cloud, but we prefer IndexedDB for actual files
-        getAllLocalTracks().then(dbTracks => {
-          if (dbTracks.length > 0) setLocalTracks(dbTracks);
-          else if (data?.localTracks) setLocalTracks(data.localTracks);
-          setIsScanning(false);
+      import('./services/dbService').then(({ loadUserData }) => {
+        loadUserData(user.uid).then(data => {
+          if (data?.playlists) setPlaylists(data.playlists);
+          // Local tracks metadata from cloud, but we prefer IndexedDB for actual files
+          getAllLocalTracks().then(dbTracks => {
+            if (dbTracks.length > 0) setLocalTracks(dbTracks);
+            else if (data?.localTracks) setLocalTracks(data.localTracks);
+            setIsScanning(false);
+          });
         });
       });
     } else {
@@ -283,22 +247,9 @@ export default function App() {
   // ── Persistence playlists & theme ─────────────────────────────────────────────
   useEffect(() => {
     if (user?.uid) {
-      // Strip Blobs from localTracks before saving to Firestore to avoid "Unsupported field value: a custom File object" error
-      const serializableLocalTracks = localTracks.map(t => {
-        const { fileBlob, ...rest } = t as any;
-        return rest;
+      import('./services/dbService').then(({ saveUserData }) => {
+        saveUserData(user.uid, { playlists, localTracks });
       });
-      // Strip Blobs from tracks inside playlists as well
-      const serializablePlaylists = playlists.map(p => ({
-        ...p,
-        tracks: p.tracks.map(t => {
-          const { fileBlob, ...rest } = t as any;
-          return rest;
-        })
-      }));
-
-      saveUserData(user.uid, { playlists: serializablePlaylists, localTracks: serializableLocalTracks });
-
     } else {
       localStorage.setItem('playme_playlists', JSON.stringify(playlists));
       localStorage.setItem('playme_localtracks', JSON.stringify(localTracks));
@@ -318,7 +269,15 @@ export default function App() {
   // ── Restaurer le token OAuth YouTube au rechargement ─────────────────────
   useEffect(() => {
     if (!user) return;
-    console.log('[Auth] Utilisateur restauré au reload:', user.displayName, '| Token YouTube: non disponible (reconnexion nécessaire)');
+    // Tente de récupérer le token OAuth depuis la session Firebase en cours
+    import('firebase/auth').then(({ getAuth }) => {
+      const auth = getAuth();
+      auth.currentUser?.getIdTokenResult().catch(() => {});
+      // Utilise le provider Google pour tenter de re-récupérer le credential
+      // Note: le token OAuth n'est disponible qu'après signInWithPopup, pas au reload
+      // On log juste pour informer
+      console.log('[Auth] Utilisateur restauré au reload:', user.displayName, '| Token YouTube: non disponible (reconnexion nécessaire)');
+    });
   }, [user?.uid]);
 
   // ── Recommandations personnalisées basées sur l'historique ────────────────
@@ -333,13 +292,7 @@ export default function App() {
         const topQueries = history.slice(0, 3);
         const prompt = topQueries.join(', ');
         const tracks = await searchYouTube(prompt);
-        if (tracks.length > 0) {
-          setHomeRecommendations(tracks.slice(0, 10));
-        } else {
-          // Fallback Gemini
-          const gt = await searchMusic(`musiques similaires à ${prompt}`);
-          setHomeRecommendations(gt.slice(0, 10));
-        }
+        setHomeRecommendations(tracks.slice(0, 10));
       } catch (e) {
         console.warn('[Home] Reco load failed:', e);
       } finally {
@@ -362,30 +315,14 @@ export default function App() {
     setIsSearching(true);
     setCurrentView('search');
     trackSearchHistory(query);
+    
     try {
-      const { searchSpotify } = await import('./services/spotifyService');
-      const [spotifyResults, ytResults] = await Promise.all([
-        searchSpotify(query).catch(() => []),
-        searchYouTube(query).catch(() => [])
-      ]);
-
-      let combined = [...spotifyResults];
-      ytResults.forEach(yt => {
-        const alreadyFound = spotifyResults.some(s => 
-          s.title.toLowerCase().includes(yt.title.toLowerCase()) || 
-          yt.title.toLowerCase().includes(s.title.toLowerCase())
-        );
-        if (!alreadyFound) combined.push(yt);
-      });
-
-      if (combined.length > 0) {
-        setSearchResults(combined);
-      } else {
-        const geminiResults = await searchMusic(query);
-        setSearchResults(geminiResults);
-      }
+      // Recherche uniquement sur YouTube (via API ou Backend Fallback)
+      const ytResults = await searchYouTube(query);
+      setSearchResults(ytResults);
     } catch (err) {
-      console.error('[Search] Error:', err);
+      console.error('[Search] YouTube Error:', err);
+      setSearchResults([]);
     } finally {
       setIsSearching(false);
     }
@@ -483,17 +420,6 @@ export default function App() {
       
       if (ytResults && ytResults.length > 0) {
         const topResult = ytResults[0];
-        // Si on demande de jouer le même morceau, on redémarre le morceau au début
-        if (player.currentTrack?.id === track.id) {
-          if (player.isClipMode && player.reactPlayerRef.current) {
-            player.reactPlayerRef.current.seekTo(0);
-          } else if (!player.isClipMode && player.audioRef.current) {
-            player.audioRef.current.currentTime = 0;
-            if (player.localUrl) player.audioRef.current.play().catch(() => {});
-          }
-          player.setIsPlaying(true);
-          return;
-        }
         // On met à jour le morceau en cours si c'est toujours le même
         if (player.currentTrack?.id === track.id) {
           player.playTrack({
@@ -711,7 +637,7 @@ export default function App() {
             'transition-all duration-700 ease-in-out overflow-hidden',
             player.isClipMode
               ? (isPipActive ? 'fixed bottom-[100px] right-[24px] w-[200px] h-[112px] z-[200] rounded-2xl shadow-2xl border border-white/10 cursor-pointer group/clippip' : 'absolute inset-0 z-[180] pointer-events-auto bg-black')
-              : 'phantom-player', // Lecteur actif mais invisible hors-écran (crucial pour le background Android)
+              : 'fixed opacity-0 w-[400px] h-[300px] -bottom-[2000px] pointer-events-none', // Lecteur virtuel hors écran pour l'audio!
           )}
           onClick={isPipActive ? () => setIsPipActive(false) : undefined}
         >
@@ -728,22 +654,20 @@ export default function App() {
             key={`clip-${player.youtubeId}`}
             ref={player.reactPlayerRef}
             url={`https://www.youtube.com/watch?v=${player.youtubeId}`}
-            playing={player.isPlaying && (player.isClipMode || (player.currentTrack && !player.currentTrack.id.startsWith('local-')))}
+            playing={player.isPlaying && player.isClipMode}
             controls={true}
             volume={player.isMuted ? 0 : player.volume}
             muted={false}
             playbackRate={player.playbackRate}
+            onProgress={player.handleTimeUpdate}
+            onDuration={player.handleDurationChange}
+            onEnded={player.handleEnded}
             loop={player.repeatMode === 'one'}
             progressInterval={500}
             config={{
               youtube: {
                 rel: 0,
-                origin: window.location.origin,
-                playerVars: {
-                  autoplay: 1,
-                  modestbranding: 1,
-                  iv_load_policy: 3
-                }
+                origin: window.location.origin
               }
             }}
             onReady={() => {
@@ -758,15 +682,13 @@ export default function App() {
               console.log('[ReactPlayer] Play Event');
               player.setIsLoading(false);
             }}
-            onBuffer={() => player.setIsLoading(true)}
-            onBufferEnd={() => player.setIsLoading(false)}
-            onProgress={player.handleTimeUpdate}
-            onDuration={player.handleDurationChange}
-            onEnded={player.handleEnded}
             onError={(e: any) => {
               console.error('[ReactPlayer] Error for ID:', player.youtubeId, e);
-              player.handleError(e);
+              player.setIsLoading(false);
+              player.setHasError(true);
             }}
+            onBuffer={() => player.setIsLoading(true)}
+            onBufferEnd={() => player.setIsLoading(false)}
             width="100%"
             height="100%"
             playsinline
@@ -935,8 +857,6 @@ export default function App() {
                       liveTracks={liveTracks}
                       recommendations={homeRecommendations}
                       isRecommendationsLoading={isHomeLoading}
-                      localTracks={localTracks}
-                      onImportClick={processFiles}
                     />
                   )}
                   {currentView === 'search' && (

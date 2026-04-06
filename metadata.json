@@ -1,5 +1,8 @@
 {
-  "name": "Play Me - Music & AI Studio",
+  "name": "Play Me - AI Music Player",
   "description": "A powerful music player with AI-powered features: music generation, smart search, and audio recognition. Supports local files, YouTube, and Spotify.",
-  "requestFramePermissions": ["microphone", "camera"]
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
 }

@@ -11,67 +11,62 @@ import {
 import { getFirestore } from 'firebase/firestore';
 import { setYouTubeOAuthToken } from './youtubeService';
 import { Capacitor } from '@capacitor/core';
-import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 import firebaseConfig from '../../firebase-applet-config.json';
-// Initialize Firebase — une seule instance (pattern singleton)
+
+// Initialize Firebase
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
 export const auth = getAuth(app);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
+// Initialize Capacitor Google Auth
+GoogleAuth.initialize({
+  clientId: '742584976934-0nmes6v5qfv9vfhiqgvdcoa9qls9h86i.apps.googleusercontent.com',
+  scopes: ['profile', 'email'],
+  grantOfflineAccess: true,
+});
+
 const googleProvider = new GoogleAuthProvider();
+// Note: YouTube scope is sensitive and requires app verification by Google.
+// googleProvider.addScope('https://www.googleapis.com/auth/youtube.readonly');
 
 export const loginWithGoogle = async () => {
   if (!auth) {
-    alert('Firebase non configuré. Voir SETUP_GUIDE.md.');
+    console.error('Firebase not initialized');
     return null;
   }
   
   try {
-    // ── GESTION MOBILE NATIVE (Capacitor) ───────────────────────
+    // ── NATIVE MOBILE (Capacitor) ───────────────────────
     if (Capacitor.isNativePlatform()) {
-      console.log('[Auth] Connexion Native (Firebase Authentication)...');
+      console.log('[Auth] Native platform detected, using GoogleAuth plugin...');
+      const googleUser = await GoogleAuth.signIn();
+      const idToken = googleUser.authentication.idToken;
       
-      let result: any;
-      try {
-        result = await FirebaseAuthentication.signInWithGoogle();
-      } catch (nativeErr: any) {
-        console.error('[Auth] Erreur plugin natif signInWithGoogle:', nativeErr);
-        const msg = nativeErr?.message || nativeErr?.code || JSON.stringify(nativeErr);
-        alert(`Erreur Auth Native : ${msg}`);
-        return null;
-      }
-      
-      const idToken = result?.credential?.idToken;
-      if (!idToken) {
-        console.error('[Auth] ID Token absent dans le résultat natif:', JSON.stringify(result));
-        alert('Erreur Auth : ID Token Google manquant. Vérifiez votre SHA-1 dans Firebase Console.');
-        return null;
-      }
+      if (!idToken) throw new Error("Missing ID Token from Google Auth");
       
       const credential = GoogleAuthProvider.credential(idToken);
-      const userCredential = await signInWithCredential(auth, credential);
+      const result = await signInWithCredential(auth, credential);
       
-      console.log('[Auth] Connecté via Native SDK :', userCredential.user.displayName);
-      return userCredential;
+      console.log('[Auth] Logged in (Native) :', result.user.displayName);
+      return result;
     }
 
-    // ── GESTION WEB CLASSIQUE ─────────────────────────────────────
+    // ── WEB ─────────────────────────────────────
     const result = await signInWithPopup(auth, googleProvider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
     const token = credential?.accessToken || null;
     
-    // Transmet le token OAuth au service YouTube pour les recherches
+    // Pass OAuth token to YouTube service for searches
     setYouTubeOAuthToken(token);
-    console.log('[Auth] Connecté (Web) :', result.user.displayName, '| YouTube token:', token ? '✅' : '❌ absent');
+    console.log('[Auth] Logged in (Web) :', result.user.displayName, '| YouTube token:', token ? '✅' : '❌');
     return result;
   } catch (error: any) {
-    // Ignorer si l'utilisateur ferme la popup
     if (error?.code === 'auth/unauthorized-domain') {
-      alert(`Domaine non autorisé ! \n\nVous utilisez probablement une IP locale (ex: ${window.location.hostname}). \n\nAllez dans votre Console Firebase > Auth > Settings > Authorized Domains et ajoutez : ${window.location.hostname}`);
+      console.error('[Auth] Unauthorized domain. Add this domain to Firebase Console:', window.location.hostname);
     } else if (error?.code !== 'auth/popup-closed-by-user' && error?.message !== 'popup-closed-by-user') {
-      console.error('[Auth] Erreur de connexion:', error);
-      alert(`Erreur d'authentification: ${error.message}`);
+      console.error('[Auth] Login error:', error);
     }
     return null;
   }
