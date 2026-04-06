@@ -29,7 +29,7 @@ import { Dialog }         from './components/ui/Dialog';
 import { PermissionBanner } from './components/PermissionBanner';
 
 import { searchMusic, getMoodPlaylists } from './services/geminiService';
-import { searchYouTube, searchLiveMusic } from './services/youtubeService';
+import { searchYouTube, searchLiveMusic, getMyYouTubePlaylists, getYouTubePlaylistItems } from './services/youtubeService';
 import { setYouTubeOAuthToken } from './services/youtubeService';
 import { saveLocalTrack, getAllLocalTracks } from './services/localDbService';
 import { GoogleAuthProvider } from 'firebase/auth';
@@ -37,15 +37,15 @@ import { Track, Playlist, View, Theme }  from './types';
 import { INITIAL_TRACKS } from './data/initialTracks';
 
 const Player = React.forwardRef<any, any>((props, ref) => {
-  const { onDuration, onBuffer, onBufferEnd, ...rest } = props;
+  const { onDurationChange, onWaiting, onPlaying, ...rest } = props;
   const RP = ReactPlayer as any;
   return (
     <RP
       ref={ref}
       {...rest}
-      onDuration={onDuration}
-      onBuffer={onBuffer}
-      onBufferEnd={onBufferEnd}
+      onDurationChange={onDurationChange}
+      onWaiting={onWaiting}
+      onPlaying={onPlaying}
     />
   );
 });
@@ -118,6 +118,8 @@ export default function App() {
   const [hasStarted, setHasStarted]   = useState(false);
   const [isNowPlayingOpen, setIsNowPlayingOpen] = useState(false);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
+  const [selectedPlaylistSource, setSelectedPlaylistSource] = useState<string | null>(null);
+  const [youtubePlaylistTracks, setYoutubePlaylistTracks] = useState<Track[]>([]);
   const [isRecognitionOpen, setIsRecognitionOpen]   = useState(false);
   const [isPipActive, setIsPipActive]                 = useState(false);
   const [videoFilters, setVideoFilters] = useState({ brightness: 1, saturation: 1 });
@@ -132,6 +134,7 @@ export default function App() {
   const [liveTracks, setLiveTracks] = useState<Track[]>([]);
   const [homeRecommendations, setHomeRecommendations] = useState<Track[]>([]);
   const [isHomeLoading, setIsHomeLoading] = useState(false);
+  const [youtubePlaylists, setYoutubePlaylists] = useState<any[]>([]);
   const [sortBy, setSortBy] = useState<'title' | 'artist' | 'date'>(() => {
     return (localStorage.getItem('playme_sortby') as any) || 'date';
   });
@@ -268,15 +271,17 @@ export default function App() {
 
   // ── Restaurer le token OAuth YouTube au rechargement ─────────────────────
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setYoutubePlaylists([]);
+      return;
+    }
     // Tente de récupérer le token OAuth depuis la session Firebase en cours
     import('firebase/auth').then(({ getAuth }) => {
       const auth = getAuth();
       auth.currentUser?.getIdTokenResult().catch(() => {});
-      // Utilise le provider Google pour tenter de re-récupérer le credential
-      // Note: le token OAuth n'est disponible qu'après signInWithPopup, pas au reload
-      // On log juste pour informer
-      console.log('[Auth] Utilisateur restauré au reload:', user.displayName, '| Token YouTube: non disponible (reconnexion nécessaire)');
+      // Utilisateur connecté, on tente de récupérer ses playlists YouTube
+      // Le token OAuth est dans le localStorage
+      getMyYouTubePlaylists().then(setYoutubePlaylists);
     });
   }, [user?.uid]);
 
@@ -680,13 +685,13 @@ export default function App() {
             key={`clip-${player.youtubeId}`}
             ref={player.reactPlayerRef}
             url={`https://www.youtube.com/watch?v=${player.youtubeId}`}
-            playing={player.isPlaying && player.isClipMode}
+            playing={player.isPlaying && !player.currentTrack?.id.startsWith('local-')}
             controls={true}
             volume={player.isMuted ? 0 : player.volume}
             muted={false}
             playbackRate={player.playbackRate}
             onProgress={player.handleTimeUpdate}
-            onDuration={player.handleDurationChange}
+            onDurationChange={player.handleDurationChange}
             onEnded={player.handleEnded}
             loop={player.repeatMode === 'one'}
             progressInterval={500}
@@ -713,8 +718,8 @@ export default function App() {
               player.setIsLoading(false);
               player.setHasError(true);
             }}
-            onBuffer={() => player.setIsLoading(true)}
-            onBufferEnd={() => player.setIsLoading(false)}
+            onWaiting={() => player.setIsLoading(true)}
+            onPlaying={() => player.setIsLoading(false)}
             width="100%"
             height="100%"
             playsinline
@@ -836,6 +841,7 @@ export default function App() {
                 currentView={currentView}
                 setCurrentView={setCurrentView}
                 playlists={playlists}
+                youtubePlaylists={youtubePlaylists}
                 createPlaylist={() => {
                   setDialog({
                     isOpen: true,
@@ -850,10 +856,19 @@ export default function App() {
                 }}
                  isOpen={isSidebarOpen}
                  onClose={() => setIsSidebarOpen(false)}
-                 onPlaylistClick={(id) => {
+                 onPlaylistClick={async (id, source) => {
                    setSelectedPlaylistId(id);
-                   setCurrentView('playlist');
-                   setIsSidebarOpen(false);
+                   setSelectedPlaylistSource(source || 'local');
+                   if (source === 'youtube') {
+                     setYoutubePlaylistTracks([]); // Clear previous
+                     setCurrentView('playlist');
+                     setIsSidebarOpen(false);
+                     const tracks = await getYouTubePlaylistItems(id);
+                     setYoutubePlaylistTracks(tracks);
+                   } else {
+                     setCurrentView('playlist');
+                     setIsSidebarOpen(false);
+                   }
                  }}
               />
 
@@ -915,13 +930,22 @@ export default function App() {
                     <LibraryView
                       favorites={player.favorites}
                       playlists={playlists}
+                      youtubePlaylists={youtubePlaylists}
                       stats={player.stats}
                       localTracks={localTracks}
                       onImportFiles={processFiles}
                       playTrack={player.playTrack}
-                      onPlaylistClick={(id) => {
+                      onPlaylistClick={async (id, source) => {
                          setSelectedPlaylistId(id);
-                         setCurrentView('playlist');
+                         setSelectedPlaylistSource(source || 'local');
+                         if (source === 'youtube') {
+                           setYoutubePlaylistTracks([]); // Clear previous
+                           setCurrentView('playlist');
+                           const tracks = await getYouTubePlaylistItems(id);
+                           setYoutubePlaylistTracks(tracks);
+                         } else {
+                           setCurrentView('playlist');
+                         }
                        }}
                        formatTime={player.formatTime}
                        sortBy={sortBy}
@@ -930,13 +954,22 @@ export default function App() {
                   )}
                   {currentView === 'playlist' && (
                     <PlaylistView
-                      playlist={playlists.find(p => p.id === selectedPlaylistId) || null}
+                      playlist={
+                        selectedPlaylistSource === 'youtube' 
+                          ? { 
+                              id: selectedPlaylistId!, 
+                              name: youtubePlaylists.find(p => p.id === selectedPlaylistId)?.name || 'YouTube Playlist', 
+                              description: 'Playlist YouTube', 
+                              tracks: youtubePlaylistTracks 
+                            }
+                          : playlists.find(p => p.id === selectedPlaylistId) || null
+                      }
                       playTrack={player.playTrack}
                       currentTrackId={player.currentTrack?.id}
                       formatTime={player.formatTime}
-                      onDeletePlaylist={deletePlaylist}
-                      onRenamePlaylist={renamePlaylist}
-                      onRemoveTrack={removeTrackFromPlaylist}
+                      onDeletePlaylist={selectedPlaylistSource === 'youtube' ? undefined : deletePlaylist}
+                      onRenamePlaylist={selectedPlaylistSource === 'youtube' ? undefined : renamePlaylist}
+                      onRemoveTrack={selectedPlaylistSource === 'youtube' ? undefined : removeTrackFromPlaylist}
                       sortBy={sortBy}
                       onSortChange={setSortBy}
                     />

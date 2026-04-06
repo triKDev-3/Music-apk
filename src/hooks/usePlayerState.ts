@@ -122,33 +122,14 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   useEffect(() => { isShuffleRef.current    = isShuffle;    }, [isShuffle]);
   useEffect(() => { 
     isClipModeRef.current   = isClipMode;   
-    if (isClipMode && currentTrack?.youtubeId) {
-       setIsLoading(true);
-       setHasError(false);
-       
-       // Sync ReactPlayer to current played time when switching to clip mode
-       pendingSeekRef.current = playedRef.current;
-       if (reactPlayerRef.current) {
-         try {
-           reactPlayerRef.current.seekTo(playedRef.current);
-         } catch (e) {
-           console.warn("Could not seek immediately, waiting for onReady");
-         }
-       }
-    } else if (!isClipMode) {
-       // Sync audioRef to current played time when switching back to audio mode
-       pendingAudioSeekRef.current = playedRef.current * durationRef.current;
-       if (audioRef.current && audioRef.current.readyState >= 1) {
-         audioRef.current.currentTime = pendingAudioSeekRef.current;
-         pendingAudioSeekRef.current = null;
-       }
-    }
-  }, [isClipMode, currentTrack?.youtubeId]);
+  }, [isClipMode]);
 
   // ── Stream URL Handler (Proxy YouTube & Fichiers Locaux) ───────────────
   useEffect(() => {
     let activeUrl: string | null = null;
     let isCancelled = false;
+
+    setLocalUrl(null); // Clear old url synchronously
 
     if (currentTrack?.id.startsWith('local-')) {
       db.tracks.get(currentTrack.id).then(stored => {
@@ -159,9 +140,8 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
           console.log('[Player] Local Blob URL created');
         }
       });
-    } else if (currentTrack?.youtubeId) {
-      setLocalUrl(`/api/stream?id=${currentTrack.youtubeId}`);
     } else {
+      // We now use ReactPlayer directly for YouTube playback, so no local URL needed
       setLocalUrl(null);
     }
     
@@ -188,7 +168,8 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
 
     // Si on demande de jouer le même morceau, on force le redémarrage
     if (currentTrackRef.current?.id === track.id) {
-      if (!isClipModeRef.current && audioRef.current) {
+      const isLocal = track.id.startsWith('local-');
+      if (isLocal && audioRef.current) {
         audioRef.current.currentTime = 0;
         audioRef.current.play().catch(() => {});
       } else if (reactPlayerRef.current && typeof reactPlayerRef.current.seekTo === 'function') {
@@ -276,7 +257,8 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   const handleEnded = useCallback(() => {
     const mode = repeatModeRef.current;
     if (mode === 'one') {
-      if (!isClipModeRef.current && audioRef.current) {
+      const isLocal = currentTrackRef.current?.id.startsWith('local-');
+      if (isLocal && audioRef.current) {
         audioRef.current.currentTime = 0;
         audioRef.current.play().catch(() => {});
       } else if (reactPlayerRef.current) {
@@ -294,11 +276,9 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   useEffect(() => {
     const audio = audioRef.current;
     
-    // Si nous n'utilisons pas la balise audio HTML5 (ex: mode vidéo ReactPlayer activé ou pas de flux backend)
-    // On autorise la lecture audio même en mode clip si on n'a pas encore de youtubeId (ex: recherche en cours)
-    // ou si c'est un fichier local (on joue le local en attendant le clip)
-    const hasValidYoutubeId = currentTrack?.youtubeId && currentTrack.youtubeId !== 'local-blob';
-    const shouldPlayAudio = isPlaying && (!isClipMode || !hasValidYoutubeId);
+    // We now only use HTML5 audio for local files. YouTube is handled entirely by ReactPlayer.
+    const isLocal = currentTrack?.id.startsWith('local-');
+    const shouldPlayAudio = isPlaying && isLocal;
 
     if (!audio || !localUrl || !shouldPlayAudio) {
        if (audio && !audio.paused) audio.pause();
@@ -439,7 +419,8 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
 
   const handleSeekChange = useCallback((val: number) => {
     setPlayed(val);
-    if (!isClipModeRef.current && audioRef.current) {
+    const isLocal = currentTrackRef.current?.id.startsWith('local-');
+    if (isLocal && audioRef.current) {
       audioRef.current.currentTime = val * audioRef.current.duration;
     } else if (reactPlayerRef.current) {
       // react-player uses seekTo(fraction)

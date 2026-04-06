@@ -3,7 +3,7 @@ import { Track } from '../types';
 const BASE = 'https://www.googleapis.com/youtube/v3';
 
 // Token OAuth de l'utilisateur connecté (mis à jour après connexion Google)
-let _oauthToken: string | null = null;
+let _oauthToken: string | null = localStorage.getItem('playme_youtube_token');
 
 /** Appelé après une connexion Google réussie pour stocker le token */
 export function setYouTubeOAuthToken(token: string | null) {
@@ -132,6 +132,9 @@ export async function searchYouTube(query: string): Promise<Track[]> {
       }));
   } catch (err) {
     console.error('[YouTube] Search failed:', err);
+    if (err instanceof Error && err.name === 'AbortError') {
+      console.warn('[YouTube] Search timed out, falling back to backend.');
+    }
     return fetchFromBackend(query);
   }
 }
@@ -248,6 +251,69 @@ export async function searchLiveMusic(): Promise<Track[]> {
       }));
   } catch (err) {
     console.error('[YouTube] Live search failed:', err);
+    return [];
+  }
+}
+
+/** Récupère les playlists de l'utilisateur connecté */
+export async function getMyYouTubePlaylists(): Promise<any[]> {
+  if (!_oauthToken) return [];
+
+  try {
+    const params = `part=snippet,contentDetails&mine=true&maxResults=50`;
+    const url = getApiUrl('playlists', params);
+
+    const res = await fetch(url, { headers: getHeaders() });
+    const data = await res.json();
+
+    if (data.error) {
+      if (data.error.code === 401) {
+        console.warn('[YouTube] Token expiré, déconnexion...');
+        localStorage.removeItem('playme_youtube_token');
+        _oauthToken = null;
+      }
+      return [];
+    }
+
+    return (data.items || []).map((item: any) => ({
+      id: item.id,
+      name: item.snippet.title,
+      description: item.snippet.description,
+      itemCount: item.contentDetails?.itemCount || 0,
+      coverUrl: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url,
+      source: 'youtube'
+    }));
+  } catch (err) {
+    console.error('[YouTube] Failed to fetch playlists:', err);
+    return [];
+  }
+}
+
+/** Récupère les vidéos d'une playlist YouTube */
+export async function getYouTubePlaylistItems(playlistId: string): Promise<Track[]> {
+  if (!_oauthToken && !YOUTUBE_API_KEY) return [];
+
+  try {
+    const params = `part=snippet,contentDetails&playlistId=${playlistId}&maxResults=50`;
+    const url = getApiUrl('playlistItems', params);
+
+    const res = await fetch(url, { headers: getHeaders() });
+    const data = await res.json();
+
+    if (!data.items) return [];
+
+    return data.items.map((item: any) => ({
+      id: item.contentDetails?.videoId || item.id,
+      title: item.snippet.title,
+      artist: item.snippet.videoOwnerChannelTitle || 'YouTube',
+      album: 'YouTube Playlist',
+      coverUrl: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url,
+      duration: 0,
+      youtubeId: item.contentDetails?.videoId,
+      source: 'youtube'
+    }));
+  } catch (err) {
+    console.error('[YouTube] Failed to fetch playlist items:', err);
     return [];
   }
 }

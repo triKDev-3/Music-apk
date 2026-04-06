@@ -5,18 +5,19 @@ import { Playlist, Track } from '../types';
 interface LibraryViewProps {
   favorites: string[];
   playlists: Playlist[];
+  youtubePlaylists?: any[];
   stats: { totalTime: number; playCount: Record<string, number>; recentlyPlayed: string[] };
   onImportFiles: (files: FileList | File[]) => void;
   localTracks: Track[];
   playTrack: (t: Track, queue?: Track[]) => void;
-  onPlaylistClick: (id: string) => void;
+  onPlaylistClick: (id: string, source?: string) => void;
   formatTime: (s: number) => string;
   sortBy: 'title' | 'artist' | 'date';
   onSortChange: (sort: 'title' | 'artist' | 'date') => void;
 }
 
 export function LibraryView({ 
-  favorites, playlists, stats, onImportFiles, 
+  favorites, playlists, youtubePlaylists = [], stats, onImportFiles, 
   localTracks, playTrack, onPlaylistClick, formatTime,
   sortBy, onSortChange
 }: LibraryViewProps) {
@@ -106,6 +107,29 @@ export function LibraryView({
               </div>
               <h4 className="font-black truncate mb-0.5 text-sm uppercase tracking-tight text-white group-hover:text-violet-400 transition-colors">{playlist.name}</h4>
               <p className="text-[10px] font-black uppercase tracking-widest text-white/30">{playlist.tracks.length} morceaux</p>
+            </div>
+          ))}
+
+          {youtubePlaylists.map(playlist => (
+            <div 
+              key={playlist.id} 
+              onClick={() => onPlaylistClick(playlist.id, 'youtube')}
+              className="group p-4 rounded-2xl transition-all cursor-pointer border border-transparent hover:border-red-500/30 hover:shadow-[0_20px_40px_rgba(255,0,0,0.15)] hover:scale-105 overflow-hidden" 
+              style={{ background: 'var(--bg-card)' }}
+            >
+              <div className="relative aspect-square mb-4 shadow-2xl rounded-xl flex items-center justify-center overflow-hidden border border-white/5" style={{ background: 'var(--bg-card-hover)' }}>
+                {playlist.coverUrl ? (
+                  <img src={playlist.coverUrl} alt={playlist.name} className="w-full h-full object-cover opacity-80 group-hover:scale-110 transition-transform duration-700" />
+                ) : (
+                  <Music size={40} className="text-white/10" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <button className="absolute bottom-3 right-3 w-12 h-12 bg-red-600 text-white rounded-full flex items-center justify-center shadow-2xl opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-300 hover:scale-110">
+                  <Play size={20} fill="currentColor" className="ml-1" />
+                </button>
+              </div>
+              <h4 className="font-black truncate mb-0.5 text-sm uppercase tracking-tight text-white group-hover:text-red-400 transition-colors">{playlist.name}</h4>
+              <p className="text-[10px] font-black uppercase tracking-widest text-white/30">{playlist.itemCount} morceaux • YouTube</p>
             </div>
           ))}
       </div>

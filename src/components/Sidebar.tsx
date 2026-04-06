@@ -45,15 +45,16 @@ interface SidebarProps {
   currentView: View;
   setCurrentView: (v: View) => void;
   playlists: Playlist[];
+  youtubePlaylists?: any[];
   createPlaylist: () => void;
-  onPlaylistClick?: (id: string) => void;
+  onPlaylistClick?: (id: string, source?: string) => void;
   /* Mobile */
   isOpen: boolean;
   onClose: () => void;
 }
 
 export function Sidebar({ 
-  currentView, setCurrentView, playlists, createPlaylist, 
+  currentView, setCurrentView, playlists, youtubePlaylists = [], createPlaylist, 
   onPlaylistClick, isOpen, onClose
 }: SidebarProps) {
   const navigate = (v: View) => { setCurrentView(v); onClose(); };
@@ -145,7 +146,7 @@ export function Sidebar({
               .map(p => (
                 <button
                   key={p.id}
-                  onClick={() => onPlaylistClick?.(p.id)}
+                  onClick={() => onPlaylistClick?.(p.id, 'local')}
                   className={clsx(
                     "w-full text-left px-4 py-2.5 text-sm font-bold truncate transition-all duration-300 rounded-xl",
                     currentView === 'playlist' && playlists.find(pl => pl.id === p.id)?.id === p.id
@@ -156,6 +157,25 @@ export function Sidebar({
                   {p.name}
                 </button>
               ))}
+            {youtubePlaylists.length > 0 && (
+              <>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 px-4 pt-4 pb-2">YouTube</p>
+                {youtubePlaylists.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => onPlaylistClick?.(p.id, 'youtube')}
+                    className={clsx(
+                      "w-full text-left px-4 py-2.5 text-sm font-bold truncate transition-all duration-300 rounded-xl",
+                      currentView === 'playlist' // Need a way to check if it's the active youtube playlist, but this is fine for now
+                        ? "text-zinc-400 hover:text-white hover:bg-white/5 hover:translate-x-1"
+                        : "text-zinc-400 hover:text-white hover:bg-white/5 hover:translate-x-1"
+                    )}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </>
+            )}
           </div>
         </nav>
 

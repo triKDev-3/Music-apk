@@ -3,15 +3,19 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenAI, Type } from "@google/genai";
-import { initDatabase, getCachedSearch, setCachedSearch, isUsingMemoryCache } from "./server/db";
+import { initDatabase, getCachedSearch, setCachedSearch, isUsingMemoryCache } from "./server/db.ts";
 import "dotenv/config";
 import { spawn } from "child_process";
 import yts from "yt-search";
+import YTMusic from "ytmusic-api";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 initDatabase();
+
+const ytmusic = new YTMusic();
+ytmusic.initialize().catch(console.error);
 
 const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -229,29 +233,31 @@ app.get("/api/search/youtube", async (req, res) => {
     
     throw new Error("NO_RESULTS_FROM_API");
   } catch (error: any) {
-    console.warn(`[YouTube Search] Falling back to yt-search due to: ${error.message}`);
+    console.warn(`[YouTube Search] Falling back to ytmusic-api due to: ${error.message}`);
     
     try {
-      // Use Promise.race for timeout with yts
-      const ytsPromise = yts(query);
+      const ytMusicPromise = ytmusic.search(query);
       const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('yt-search timeout')), 12000)
+        setTimeout(() => reject(new Error('ytmusic-api timeout')), 12000)
       );
       
-      const r = await Promise.race([ytsPromise, timeoutPromise]);
-      const results = (r.videos || []).slice(0, 20).map(v => ({
-        id: v.videoId,
-        title: v.title,
-        artist: v.author.name,
-        album: 'YouTube Music',
-        coverUrl: v.image || v.thumbnail,
-        duration: v.seconds,
-        youtubeId: v.videoId,
-        source: 'youtube'
-      }));
+      const r = await Promise.race([ytMusicPromise, timeoutPromise]);
+      const results = (r || [])
+        .filter((v: any) => v.type === 'SONG' || v.type === 'VIDEO')
+        .slice(0, 20)
+        .map((v: any) => ({
+          id: v.videoId,
+          title: v.name,
+          artist: v.artist?.name || 'Unknown Artist',
+          album: v.album?.name || 'YouTube Music',
+          coverUrl: v.thumbnails?.[v.thumbnails.length - 1]?.url || v.thumbnails?.[0]?.url || '',
+          duration: v.duration || 0,
+          youtubeId: v.videoId,
+          source: 'youtube'
+        }));
       
       if (results.length > 0) {
-        console.log(`[YouTube Search] Success with yt-search: ${results.length} results`);
+        console.log(`[YouTube Search] Success with ytmusic-api: ${results.length} results`);
         await setCachedSearch(query, results, "search_cache");
         return res.json(results);
       }

@@ -28,8 +28,8 @@ GoogleAuth.initialize({
 });
 
 const googleProvider = new GoogleAuthProvider();
-// Note: YouTube scope is sensitive and requires app verification by Google.
-// googleProvider.addScope('https://www.googleapis.com/auth/youtube.readonly');
+// Enable YouTube scope to allow searching via user account
+googleProvider.addScope('https://www.googleapis.com/auth/youtube.readonly');
 
 export const loginWithGoogle = async () => {
   if (!auth) {
@@ -60,12 +60,15 @@ export const loginWithGoogle = async () => {
     
     // Pass OAuth token to YouTube service for searches
     setYouTubeOAuthToken(token);
+    if (token) {
+      localStorage.setItem('playme_youtube_token', token);
+    }
     console.log('[Auth] Logged in (Web) :', result.user.displayName, '| YouTube token:', token ? '✅' : '❌');
     return result;
   } catch (error: any) {
     if (error?.code === 'auth/unauthorized-domain') {
       console.error('[Auth] Unauthorized domain. Add this domain to Firebase Console:', window.location.hostname);
-    } else if (error?.code !== 'auth/popup-closed-by-user' && error?.message !== 'popup-closed-by-user') {
+    } else if (error?.code !== 'auth/popup-closed-by-user' && error?.code !== 'auth/cancelled-popup-request' && error?.message !== 'popup-closed-by-user') {
       console.error('[Auth] Login error:', error);
     }
     return null;
@@ -74,6 +77,7 @@ export const loginWithGoogle = async () => {
 
 export const logout = async () => {
   setYouTubeOAuthToken(null);
+  localStorage.removeItem('playme_youtube_token');
   if (!auth) return;
   await signOut(auth);
 };
