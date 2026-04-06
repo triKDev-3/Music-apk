@@ -192,16 +192,16 @@ app.get("/api/search/youtube", async (req, res) => {
   }
 
   const API_KEY = process.env.VITE_YOUTUBE_API_KEY || process.env.YOUTUBE_API_KEY || "";
-  if (!API_KEY || API_KEY === "YOUR_YOUTUBE_API_KEY") {
-    console.warn("YouTube API key not set or is a placeholder");
-    return res.status(401).json({ error: "YouTube API key is missing or invalid. Please set VITE_YOUTUBE_API_KEY." });
-  }
-
+  
   try {
+    if (!API_KEY || API_KEY === "YOUR_YOUTUBE_API_KEY") {
+      throw new Error("API_KEY_MISSING");
+    }
+
     const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=20&key=${API_KEY}`);
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error("YouTube API error, falling back to yt-dlp:", JSON.stringify(errorData, null, 2));
+      console.error("YouTube API error, falling back to yt-search:", JSON.stringify(errorData, null, 2));
       throw new Error("API_KEY_INVALID");
     }
 
@@ -239,7 +239,7 @@ app.get("/api/search/youtube", async (req, res) => {
       res.json(results);
     } catch (fallbackError) {
       console.error("[YouTube Search] Fallback failed:", fallbackError);
-      res.status(500).json({ error: "YouTube search failed." });
+      res.json([]); // Return empty array instead of 500 to keep frontend stable
     }
   }
 });
@@ -314,7 +314,7 @@ app.post("/api/search/gemini", async (req, res) => {
     res.json([]);
   } catch (error: any) {
     console.error("Gemini search full error:", error);
-    res.status(500).json({ error: error.message || "Failed to search via Gemini" });
+    res.json([]);
   }
 });
 

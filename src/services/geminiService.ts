@@ -48,7 +48,7 @@ const REAL_TRACKS_BY_MOOD: Record<string, Track[]> = {
 /** Recherche des musiques par requête texte (fallback vers Gemini) */
 export async function searchMusic(query: string): Promise<Track[]> {
   try {
-    const response = await ai.models.generateContent({
+    const geminiPromise = ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [{
         role: "user",
@@ -71,6 +71,12 @@ export async function searchMusic(query: string): Promise<Track[]> {
       }],
       config: { responseMimeType: "application/json" }
     });
+
+    const timeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error('Gemini Timeout')), 15000)
+    );
+
+    const response = await Promise.race([geminiPromise, timeoutPromise]);
 
     let text = response.text;
     if (!text) return getMockResults(query);

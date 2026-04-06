@@ -317,12 +317,38 @@ export default function App() {
     trackSearchHistory(query);
     
     try {
-      // Recherche uniquement sur YouTube (via API ou Backend Fallback)
+      // 1. Recherche locale + Initial Tracks
+      const localResults = [
+        ...INITIAL_TRACKS,
+        ...localTracks
+      ].filter(t => 
+        t.title.toLowerCase().includes(query.toLowerCase()) || 
+        t.artist.toLowerCase().includes(query.toLowerCase())
+      );
+
+      // 2. Recherche YouTube (via API ou Backend Fallback)
       const ytResults = await searchYouTube(query);
-      setSearchResults(ytResults);
+
+      // 3. Fusionner (Local > YouTube)
+      let combined = [...localResults];
+      ytResults.forEach(yt => {
+        if (!combined.some(c => c.youtubeId === yt.youtubeId)) {
+          combined.push(yt);
+        }
+      });
+
+      // 4. Fallback Gemini si vraiment rien
+      if (combined.length === 0) {
+        const geminiResults = await searchMusic(query);
+        combined = geminiResults;
+      }
+
+      setSearchResults(combined);
     } catch (err) {
-      console.error('[Search] YouTube Error:', err);
-      setSearchResults([]);
+      console.error('[Search] Error:', err);
+      // Fallback ultime Gemini
+      const fallback = await searchMusic(query);
+      setSearchResults(fallback);
     } finally {
       setIsSearching(false);
     }

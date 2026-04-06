@@ -52,7 +52,7 @@ export async function searchYouTube(query: string): Promise<Track[]> {
   }
 
   // 2. Si aucune auth, on tente quand même l'API Key ou on bascule au backend
-  if (!_oauthToken && !YOUTUBE_API_KEY) {
+  if (!_oauthToken && (!YOUTUBE_API_KEY || YOUTUBE_API_KEY === 'YOUR_YOUTUBE_API_KEY' || YOUTUBE_API_KEY === '')) {
     return fetchFromBackend(query);
   }
 
@@ -60,7 +60,14 @@ export async function searchYouTube(query: string): Promise<Track[]> {
     const params = `part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=50`;
     const searchUrl = getApiUrl('search', params);
 
-    const res = await fetch(searchUrl, { headers: getHeaders() });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+    const res = await fetch(searchUrl, { 
+      headers: getHeaders(),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
 
     if (res.status === 403) {
       console.warn('[YouTube] Quota API dépassé (403). Activation du mode Backend.');
@@ -85,7 +92,14 @@ export async function searchYouTube(query: string): Promise<Track[]> {
 
     try {
       const params = `part=contentDetails&id=${ids}`;
-      const detailRes = await fetch(getApiUrl('videos', params), { headers: getHeaders() });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
+      const detailRes = await fetch(getApiUrl('videos', params), { 
+        headers: getHeaders(),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
       const detailData = await detailRes.json();
       (detailData.items || []).forEach((item: any) => {
         durationMap[item.id] = parseDuration(item.contentDetails?.duration || '');
@@ -117,27 +131,29 @@ export async function searchYouTube(query: string): Promise<Track[]> {
 
 /** Assistant pour appeler le backend de secours */
 async function fetchFromBackend(query: string): Promise<Track[]> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
+    
     try {
         console.log(`[YouTube] Recherche via Backend API pour: "${query}"`);
-        const res = await fetch(`/api/search/youtube?q=${encodeURIComponent(query)}`);
+        const res = await fetch(`/api/search/youtube?q=${encodeURIComponent(query)}`, { 
+          signal: controller.signal 
+        });
+        clearTimeout(timeoutId);
+
         if (res.ok) {
             const contentType = res.headers.get("content-type");
             if (contentType && contentType.includes("application/json")) {
                 const data = await res.json();
                 const results = Array.isArray(data) ? data : (data.items || []);
                 if (results.length > 0) return results;
-            } else {
-                const text = await res.text();
-                console.error(`[YouTube] Backend returned non-JSON response (${contentType}):`, text.substring(0, 100));
             }
-        } else {
-            console.error(`[YouTube] Backend search failed with status ${res.status}`);
         }
-        console.warn(`[YouTube] Backend indisponible pour "${query}", cascade vers Gemini.`);
-        return []; // Retourner [] pour déclencher le fallback Gemini dans App.tsx
+        return []; 
     } catch (e) {
-        console.error('[YouTube] Échec critique recherche backend:', e);
-        return []; // Idem : laisser App.tsx cascader vers Gemini
+        clearTimeout(timeoutId);
+        console.error('[YouTube] Échec recherche backend:', e);
+        return [];
     }
 }
 
