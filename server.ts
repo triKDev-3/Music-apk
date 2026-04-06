@@ -194,6 +194,8 @@ app.get("/api/search/youtube", async (req, res) => {
   const API_KEY = (process.env.VITE_YOUTUBE_API_KEY || process.env.YOUTUBE_API_KEY || "").trim();
   
   try {
+    console.log(`[YouTube Search] Query: "${query}" | API Key: ${API_KEY ? 'Present' : 'Missing'}`);
+
     if (!API_KEY || API_KEY === "YOUR_YOUTUBE_API_KEY" || API_KEY === "undefined" || API_KEY === "null") {
       throw new Error("API_KEY_MISSING");
     }
@@ -204,8 +206,8 @@ app.get("/api/search/youtube", async (req, res) => {
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.error("YouTube API error, falling back to yt-search:", JSON.stringify(errorData, null, 2));
-      throw new Error("API_KEY_INVALID");
+      console.error("[YouTube API] Error response:", JSON.stringify(errorData, null, 2));
+      throw new Error(`API_ERROR_${response.status}`);
     }
 
     const data = await response.json();
@@ -220,10 +222,14 @@ app.get("/api/search/youtube", async (req, res) => {
       source: "youtube"
     }));
 
-    await setCachedSearch(query, results, "search_cache");
-    res.json(results);
+    if (results.length > 0) {
+      await setCachedSearch(query, results, "search_cache");
+      return res.json(results);
+    }
+    
+    throw new Error("NO_RESULTS_FROM_API");
   } catch (error: any) {
-    console.warn("[YouTube Search] Fallback to yt-search due to:", error.message);
+    console.warn(`[YouTube Search] Falling back to yt-search due to: ${error.message}`);
     
     try {
       // Use Promise.race for timeout with yts
@@ -244,11 +250,44 @@ app.get("/api/search/youtube", async (req, res) => {
         source: 'youtube'
       }));
       
-      await setCachedSearch(query, results, "search_cache");
-      res.json(results);
-    } catch (fallbackError) {
-      console.error("[YouTube Search] Fallback failed:", fallbackError);
-      res.json([]); // Return empty array instead of 500 to keep frontend stable
+      if (results.length > 0) {
+        console.log(`[YouTube Search] Success with yt-search: ${results.length} results`);
+        await setCachedSearch(query, results, "search_cache");
+        return res.json(results);
+      }
+
+      // If yt-search also fails or returns nothing, try Gemini as a last resort in the backend
+      console.log(`[YouTube Search] yt-search returned nothing, trying Gemini fallback...`);
+      const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || "";
+      if (GEMINI_KEY && GEMINI_KEY !== "YOUR_GEMINI_API_KEY") {
+        const ai = new GoogleGenAI({ apiKey: GEMINI_KEY });
+        const model = ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: `Find 10 real YouTube music videos for the query: "${query}". Return ONLY a JSON array: [{"title": "...", "artist": "...", "youtubeId": "..."}]`,
+          config: { responseMimeType: "application/json" }
+        });
+        const geminiRes = await model;
+        const geminiData = JSON.parse(geminiRes.text || "[]");
+        const geminiResults = geminiData.map((t: any) => ({
+          id: t.youtubeId,
+          title: t.title,
+          artist: t.artist,
+          album: "AI Recommendation",
+          coverUrl: `https://i.ytimg.com/vi/${t.youtubeId}/hqdefault.jpg`,
+          duration: 180,
+          youtubeId: t.youtubeId,
+          source: "youtube"
+        }));
+        if (geminiResults.length > 0) {
+          await setCachedSearch(query, geminiResults, "search_cache");
+          return res.json(geminiResults);
+        }
+      }
+      
+      res.json([]); 
+    } catch (fallbackError: any) {
+      console.error("[YouTube Search] All fallbacks failed:", fallbackError.message);
+      res.json([]); 
     }
   }
 });

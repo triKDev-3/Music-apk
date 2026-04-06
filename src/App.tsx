@@ -857,7 +857,11 @@ export default function App() {
                  }}
               />
 
-              <main className="flex-1 flex flex-col overflow-hidden shadow-2xl" style={{ background: mainBg }}>
+              <main className="flex-1 flex flex-col overflow-hidden relative bg-gradient-to-b from-[#121212] to-black">
+                {/* Background Glows */}
+                <div className="absolute top-0 left-1/4 w-96 h-96 bg-violet-600/10 rounded-full blur-[120px] pointer-events-none" />
+                <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
+
                 <PermissionBanner />
                 <Header
                   searchQuery={searchQuery}
@@ -872,7 +876,15 @@ export default function App() {
                   onRecognitionOpen={() => setIsRecognitionOpen(true)}
                 />
 
-                <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-2 scroll-smooth">
+                <div className="flex-1 overflow-y-auto px-4 md:px-8 pb-32 scroll-smooth relative z-10 custom-scrollbar">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={currentView + (selectedPlaylistId || '')}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.4, ease: "easeOut" }}
+                    >
                   {currentView === 'home' && (
                     <HomeView
                       currentTrack={player.currentTrack}
@@ -932,6 +944,8 @@ export default function App() {
                   {currentView === 'ai-studio' && (
                     <AIStudioView onPlayTrack={player.playTrack} />
                   )}
+                    </motion.div>
+                  </AnimatePresence>
                 </div>
               </main>
             </div>

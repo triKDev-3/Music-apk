@@ -85,6 +85,48 @@ export function HomeView({
 
       <div className="space-y-12">
 
+      {/* ── Moods & Ambiance ── */}
+      <section>
+        <div className="flex items-center gap-3 mb-8">
+          <div className="p-2.5 rounded-2xl bg-violet-500/10 border border-violet-500/20">
+            <Smile size={24} className="text-violet-500" />
+          </div>
+          <h2 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">
+            Quelle est ton ambiance ?
+          </h2>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {[
+            { id: 'chill', name: 'Chill', icon: Moon, color: 'from-blue-600 to-indigo-900' },
+            { id: 'energy', name: 'Énergie', icon: Flame, color: 'from-orange-500 to-red-700' },
+            { id: 'focus', name: 'Focus', icon: Zap, color: 'from-emerald-500 to-teal-800' },
+            { id: 'workout', name: 'Sport', icon: Dumbbell, color: 'from-pink-600 to-rose-900' },
+            { id: 'happy', name: 'Joie', icon: Smile, color: 'from-yellow-400 to-orange-600' },
+            { id: 'romance', name: 'Romance', icon: HeartIcon, color: 'from-red-400 to-pink-600' },
+          ].map((mood) => (
+            <motion.button
+              key={mood.id}
+              whileHover={{ scale: 1.05, y: -5 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => handleMoodClick(mood.id)}
+              disabled={isMoodLoading}
+              className={clsx(
+                "relative h-24 rounded-3xl overflow-hidden group transition-all shadow-lg",
+                isMoodLoading && "opacity-50 cursor-wait"
+              )}
+            >
+              <div className={clsx("absolute inset-0 bg-gradient-to-br opacity-80 group-hover:opacity-100 transition-opacity", mood.color)} />
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 z-10">
+                <mood.icon size={28} className="text-white drop-shadow-md" />
+                <span className="text-xs font-black uppercase tracking-widest text-white drop-shadow-md">{mood.name}</span>
+              </div>
+              {/* Decorative circle */}
+              <div className="absolute -right-4 -bottom-4 w-16 h-16 bg-white/10 rounded-full blur-xl group-hover:scale-150 transition-transform duration-500" />
+            </motion.button>
+          ))}
+        </div>
+      </section>
+
       {/* ── Pour toi (recommandations personnalisées) ── */}
       {(isRecommendationsLoading || recommendations.length > 0) && (
         <motion.section
