@@ -140,6 +140,30 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
           console.log('[Player] Local Blob URL created');
         }
       });
+    } else if (currentTrack?.youtubeId) {
+      // Robust pure audio streaming via PipedAPI (Bypasses YouTube Iframe blocks + Vercel limits)
+      fetch(`https://pipedapi.kavin.rocks/streams/${currentTrack.youtubeId}`)
+        .then(res => {
+          if (!res.ok) throw new Error("PipedAPI request failed");
+          return res.json();
+        })
+        .then(data => {
+          if (isCancelled) return;
+          // Chercher le flux audio de meilleure qualité
+          const audioStreams = data.audioStreams || [];
+          const bestAudio = audioStreams.sort((a: any, b: any) => b.bitrate - a.bitrate)[0];
+          
+          if (bestAudio?.url) {
+            console.log('[Player] PipedAPI Audio URL retrieved');
+            setLocalUrl(bestAudio.url);
+          } else {
+            setLocalUrl(null); // Fallback to ReactPlayer
+          }
+        })
+        .catch(err => {
+          console.error('[Player] Audio extraction error:', err);
+          if (!isCancelled) setLocalUrl(null);
+        });
     } else {
       setLocalUrl(null);
     }
@@ -277,9 +301,10 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   useEffect(() => {
     const audio = audioRef.current;
     
-    // Use HTML5 audio ONLY for local files. YouTube is handled entirely by ReactPlayer.
+    // Use HTML5 audio for local files AND extracted YouTube audio streams.
     const isLocal = currentTrack?.id.startsWith('local-');
-    const shouldPlayAudio = isPlaying && isLocal;
+    const isYoutubeExtracted = currentTrack?.youtubeId && localUrl?.startsWith('http') && !localUrl.includes('youtube.com/watch');
+    const shouldPlayAudio = isPlaying && (isLocal || (isYoutubeExtracted && !isClipMode));
 
     if (!audio || !localUrl || !shouldPlayAudio) {
        if (audio && !audio.paused) audio.pause();

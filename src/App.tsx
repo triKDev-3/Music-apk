@@ -685,7 +685,7 @@ export default function App() {
           <Player
             ref={player.reactPlayerRef}
             url={`https://www.youtube.com/watch?v=${player.youtubeId}`}
-            playing={player.isPlaying && !player.currentTrack?.id.startsWith('local-')}
+            playing={player.isPlaying && !player.currentTrack?.id.startsWith('local-') && (!player.localUrl || player.isClipMode)}
             controls={true}
             volume={player.volume}
             muted={player.isMuted}
