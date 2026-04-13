@@ -184,6 +184,24 @@ app.get("/api/stream", async (req, res) => {
   }
 });
 
+// PipedAPI Proxy pour éviter les erreurs CORS sur le frontend
+app.get("/api/piped-streams/:id", async (req, res) => {
+  const { id } = req.params;
+  // Allow CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET');
+  
+  try {
+    const response = await fetch(`https://pipedapi.kavin.rocks/streams/${id}`);
+    if (!response.ok) throw new Error("PipedAPI request failed");
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error("[PipedProxy] Error:", error);
+    res.status(500).json({ error: "Failed to fetch piped streams" });
+  }
+});
+
 // YouTube Search API
 app.get("/api/search/youtube", async (req, res) => {
   const query = req.query.q as string;
@@ -209,9 +227,9 @@ app.get("/api/search/youtube", async (req, res) => {
     });
     
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error("[YouTube API] Error response:", JSON.stringify(errorData, null, 2));
-      throw new Error(`API_ERROR_${response.status}`);
+       const errorText = await response.text();
+       console.error("[YouTube API] Error response:", errorText);
+       throw new Error(`API_ERROR_${response.status}`);
     }
 
     const data = await response.json();
@@ -233,31 +251,25 @@ app.get("/api/search/youtube", async (req, res) => {
     
     throw new Error("NO_RESULTS_FROM_API");
   } catch (error: any) {
-    console.warn(`[YouTube Search] Falling back to ytmusic-api due to: ${error.message}`);
+    console.warn(`[YouTube Search] Falling back to yt-search due to: ${error.message}`);
     
     try {
-      const ytMusicPromise = ytmusic.search(query);
-      const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('ytmusic-api timeout')), 12000)
-      );
-      
-      const r = await Promise.race([ytMusicPromise, timeoutPromise]);
-      const results = (r || [])
-        .filter((v: any) => v.type === 'SONG' || v.type === 'VIDEO')
+      const r = await yts(query);
+      const results = (r.videos || [])
         .slice(0, 20)
         .map((v: any) => ({
           id: v.videoId,
-          title: v.name,
-          artist: v.artist?.name || 'Unknown Artist',
-          album: v.album?.name || 'YouTube Music',
-          coverUrl: v.thumbnails?.[v.thumbnails.length - 1]?.url || v.thumbnails?.[0]?.url || '',
-          duration: v.duration || 0,
+          title: v.title,
+          artist: v.author.name || 'Unknown Artist',
+          album: 'YouTube',
+          coverUrl: v.thumbnail || v.image,
+          duration: v.seconds || 0,
           youtubeId: v.videoId,
           source: 'youtube'
         }));
       
       if (results.length > 0) {
-        console.log(`[YouTube Search] Success with ytmusic-api: ${results.length} results`);
+        console.log(`[YouTube Search] Success with yt-search: ${results.length} results`);
         await setCachedSearch(query, results, "search_cache");
         return res.json(results);
       }

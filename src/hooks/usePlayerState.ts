@@ -141,27 +141,29 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
         }
       });
     } else if (currentTrack?.youtubeId) {
-      // Robust pure audio streaming via PipedAPI (Bypasses YouTube Iframe blocks + Vercel limits)
-      fetch(`https://pipedapi.kavin.rocks/streams/${currentTrack.youtubeId}`)
+      // Robust pure audio streaming via Backend Proxy (Fixes CORS + Vercel limits)
+      fetch(`${import.meta.env.VITE_API_URL || ""}/api/piped-streams/${currentTrack.youtubeId}`)
         .then(res => {
-          if (!res.ok) throw new Error("PipedAPI request failed");
+          if (!res.ok) throw new Error("Backend PipedProxy request failed");
           return res.json();
         })
         .then(data => {
           if (isCancelled) return;
+          if (!data) throw new Error("No data from proxy");
           // Chercher le flux audio de meilleure qualité
           const audioStreams = data.audioStreams || [];
           const bestAudio = audioStreams.sort((a: any, b: any) => b.bitrate - a.bitrate)[0];
           
           if (bestAudio?.url) {
-            console.log('[Player] PipedAPI Audio URL retrieved');
+            console.log('[Player] Piped Proxy Audio URL retrieved');
             setLocalUrl(bestAudio.url);
           } else {
-            setLocalUrl(null); // Fallback to ReactPlayer
+            console.warn('[Player] No audio stream found via PipedProxy');
+            setLocalUrl(null); 
           }
         })
         .catch(err => {
-          console.error('[Player] Audio extraction error:', err);
+          console.error('[Player] Audio extraction error (Proxy):', err);
           if (!isCancelled) setLocalUrl(null);
         });
     } else {

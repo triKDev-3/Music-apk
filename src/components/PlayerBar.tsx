@@ -74,12 +74,7 @@ export function PlayerBar({
                   <Loader2 size={20} className="text-violet-500 animate-spin" />
                 </div>
               )}
-              <button
-                onClick={(e) => { e.stopPropagation(); setIsClipMode(!isClipMode); }}
-                className={`absolute -top-1 -right-1 p-1 rounded-full shadow-lg transition-all ${isClipMode ? 'bg-violet-600 text-white' : 'bg-zinc-900 text-zinc-400 hover:text-white'} hidden sm:flex`}
-              >
-                <Video size={12} />
-              </button>
+
             </div>
             
             <div className="min-w-0 flex flex-col justify-center overflow-hidden flex-1">
@@ -209,9 +204,7 @@ export function PlayerBar({
       {/* Volume & extras - Desktop */}
       <div className="hidden sm:flex items-center justify-end gap-6 sm:w-1/3 min-w-[200px]">
         <div className="flex items-center gap-4">
-          <button onClick={() => setIsClipMode(!isClipMode)} className={`transition-colors ${isClipMode ? 'text-violet-500' : 'text-zinc-500 hover:text-white'}`}>
-            <Video size={20} />
-          </button>
+
           <button className="text-zinc-500 hover:text-white transition-colors">
             <ListMusic size={20} />
           </button>

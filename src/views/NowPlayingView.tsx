@@ -456,20 +456,7 @@ export function NowPlayingView({
            <div className="flex items-center justify-between mt-10">
               <div className="flex gap-4">
 
-                <div className="flex items-center bg-white/5 rounded-full p-1 gap-1 border border-white/10 shadow-inner">
-                  <button 
-                    onClick={() => setIsClipMode(false)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black transition-all ${!isClipMode ? 'bg-violet-600 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
-                  >
-                    <Music2 size={14} /> AUDIO
-                  </button>
-                  <button 
-                    onClick={() => setIsClipMode(true)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black transition-all ${isClipMode ? 'bg-violet-600 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
-                  >
-                    <Tv size={14} /> VIDÉO
-                  </button>
-                </div>
+
               </div>
               
               <div className="flex items-center gap-6 text-white/40">
