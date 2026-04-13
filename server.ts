@@ -191,28 +191,23 @@ app.get("/api/piped-streams/:id", async (req, res) => {
 
   const instances = [
     "https://pipedapi.kavin.rocks",
-    "https://pipedapi.leptons.xyz",
-    "https://pipedapi.notsharing.org",
-    "https://api.piped.privacydev.net"
+    "https://api.piped.privacydev.net",
+    "https://pipedapi.leptons.xyz"
   ];
 
   for (const instance of instances) {
     try {
-      console.log(`[PipedProxy] Attempting instance: ${instance} for ID: ${id}`);
-      const response = await fetch(`${instance}/streams/${id}`, { signal: AbortSignal.timeout(4000) });
+      const response = await fetch(`${instance}/streams/${id}`, { 
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36' },
+        signal: AbortSignal.timeout(2500) 
+      });
       if (response.ok) {
         const data = await response.json();
-        if (data.audioStreams && data.audioStreams.length > 0) {
-          console.log(`[PipedProxy] Success with ${instance}`);
-          return res.json(data);
-        }
+        if (data.audioStreams && data.audioStreams.length > 0) return res.json(data);
       }
-    } catch (err) {
-      console.warn(`[PipedProxy] Instance ${instance} failed, trying next...`);
-    }
+    } catch (err) { /* Next */ }
   }
-
-  res.status(503).json({ error: "All Piped instances are currently unavailable" });
+  res.status(503).json({ error: "Service temporarily unavailable" });
 });
 
 // YouTube Search API
@@ -221,50 +216,49 @@ app.get("/api/search/youtube", async (req, res) => {
   if (!query) return res.status(400).json({ error: "Query is required" });
 
   const cached = await getCachedSearch(query, "search_cache");
-  if (cached) {
-    console.log(`[Cache Hit] YouTube: ${query}`);
-    return res.json(cached);
-  }
+  if (cached) return res.json(cached);
 
-  const API_KEY = (process.env.VITE_YOUTUBE_API_KEY || process.env.YOUTUBE_API_KEY || "").trim();
-  
   try {
-    console.log(`[YouTube Search] Query: "${query}" | API Key: ${API_KEY ? 'Present' : 'Missing'}`);
-
-    if (!API_KEY || API_KEY === "YOUR_YOUTUBE_API_KEY" || API_KEY === "undefined" || API_KEY === "null") {
-      throw new Error("API_KEY_MISSING");
-    }
-
-    const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=20&key=${API_KEY}`, {
-      signal: AbortSignal.timeout(10000) // 10s timeout
-    });
+    console.log(`[YouTube Search] High-speed search for: "${query}"`);
+    const r = await yts(query);
+    const results = (r.videos || [])
+      .slice(0, 20)
+      .map((v: any) => ({
+        id: v.videoId,
+        title: v.title,
+        artist: v.author.name || 'Unknown Artist',
+        album: 'YouTube',
+        coverUrl: v.thumbnail || v.image,
+        duration: v.seconds || 0,
+        youtubeId: v.videoId,
+        source: 'youtube'
+      }));
     
-    if (!response.ok) {
-       const errorText = await response.text();
-       console.error("[YouTube API] Error response:", errorText);
-       throw new Error(`API_ERROR_${response.status}`);
-    }
-
-    const data = await response.json();
-    const results = (data.items || []).map((item: any) => ({
-      id: item.id.videoId,
-      title: item.snippet.title,
-      artist: item.snippet.channelTitle,
-      album: "YouTube Video",
-      coverUrl: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.default?.url,
-      duration: 0,
-      youtubeId: item.id.videoId,
-      source: "youtube"
-    }));
-
     if (results.length > 0) {
       await setCachedSearch(query, results, "search_cache");
       return res.json(results);
     }
-    
-    throw new Error("NO_RESULTS_FROM_API");
+    throw new Error("NO_RESULTS");
   } catch (error: any) {
-    console.warn(`[YouTube Search] Falling back to yt-search due to: ${error.message}`);
+    console.warn(`[YouTube Search] Fallback to Google API or Gemini...`);
+    // Fallback to Google API if key present
+    const API_KEY = (process.env.VITE_YOUTUBE_API_KEY || process.env.YOUTUBE_API_KEY || "").trim();
+    if (API_KEY && API_KEY !== "YOUR_YOUTUBE_API_KEY") {
+      try {
+        const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=20&key=${API_KEY}`);
+        if (response.ok) {
+          const data = await response.json();
+          return res.json((data.items || []).map((item: any) => ({
+            id: item.id.videoId,
+            title: item.snippet.title,
+            artist: item.snippet.channelTitle,
+            coverUrl: item.snippet.thumbnails.high?.url,
+            youtubeId: item.id.videoId,
+            source: "youtube"
+          })));
+        }
+      } catch (e) {}
+    }
     
     try {
       const r = await yts(query);
