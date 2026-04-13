@@ -140,9 +140,6 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
           console.log('[Player] Local Blob URL created');
         }
       });
-    } else if (currentTrack?.youtubeId && !isClipMode) {
-      // Proxy stream for YouTube audio playback to bypass Iframe restrictions
-      setLocalUrl(`${import.meta.env.VITE_API_URL || ""}/api/stream?id=${currentTrack.youtubeId}`);
     } else {
       setLocalUrl(null);
     }
@@ -280,10 +277,9 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   useEffect(() => {
     const audio = audioRef.current;
     
-    // Use HTML5 audio for local files or proxied youtube audio streams.
+    // Use HTML5 audio ONLY for local files. YouTube is handled entirely by ReactPlayer.
     const isLocal = currentTrack?.id.startsWith('local-');
-    const isProxied = currentTrack?.youtubeId && !isClipMode;
-    const shouldPlayAudio = isPlaying && (isLocal || isProxied);
+    const shouldPlayAudio = isPlaying && isLocal;
 
     if (!audio || !localUrl || !shouldPlayAudio) {
        if (audio && !audio.paused) audio.pause();
