@@ -146,7 +146,7 @@ async function fetchFromBackend(query: string): Promise<Track[]> {
     
     try {
         console.log(`[YouTube] Recherche via Backend API pour: "${query}"`);
-        const res = await fetch(`/api/search/youtube?q=${encodeURIComponent(query)}`, { 
+        const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/search/youtube?q=${encodeURIComponent(query)}`, { 
           signal: controller.signal 
         });
         clearTimeout(timeoutId);

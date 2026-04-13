@@ -80,6 +80,7 @@ export const logout = async () => {
   localStorage.removeItem('playme_youtube_token');
   if (!auth) return;
   await signOut(auth);
+  window.location.reload();
 };
 
 export const onAuthChange = (cb: (user: User | null) => void) => {

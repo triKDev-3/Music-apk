@@ -140,8 +140,10 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
           console.log('[Player] Local Blob URL created');
         }
       });
+    } else if (currentTrack?.youtubeId && !isClipMode) {
+      // Proxy stream for YouTube audio playback to bypass Iframe restrictions
+      setLocalUrl(`${import.meta.env.VITE_API_URL || ""}/api/stream?id=${currentTrack.youtubeId}`);
     } else {
-      // We now use ReactPlayer directly for YouTube playback, so no local URL needed
       setLocalUrl(null);
     }
     
@@ -152,7 +154,7 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
          console.log('[Player] Local Blob URL revoked');
       }
     };
-  }, [currentTrack?.youtubeId, currentTrack?.id]);
+  }, [currentTrack?.youtubeId, currentTrack?.id, isClipMode]);
 
   // playTrack avec gestion de file d'attente contextuelle
   const playTrack = useCallback((track: Track, customQueue?: Track[]) => {
@@ -171,7 +173,9 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
       const isLocal = track.id.startsWith('local-');
       if (isLocal && audioRef.current) {
         audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => {});
+        if (!isPlaying) {
+          audioRef.current.play().catch(() => {});
+        }
       } else if (reactPlayerRef.current && typeof reactPlayerRef.current.seekTo === 'function') {
         reactPlayerRef.current.seekTo(0);
       }
@@ -276,9 +280,10 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   useEffect(() => {
     const audio = audioRef.current;
     
-    // We now only use HTML5 audio for local files. YouTube is handled entirely by ReactPlayer.
+    // Use HTML5 audio for local files or proxied youtube audio streams.
     const isLocal = currentTrack?.id.startsWith('local-');
-    const shouldPlayAudio = isPlaying && isLocal;
+    const isProxied = currentTrack?.youtubeId && !isClipMode;
+    const shouldPlayAudio = isPlaying && (isLocal || isProxied);
 
     if (!audio || !localUrl || !shouldPlayAudio) {
        if (audio && !audio.paused) audio.pause();

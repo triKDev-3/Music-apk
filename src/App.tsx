@@ -37,7 +37,7 @@ import { Track, Playlist, View, Theme }  from './types';
 import { INITIAL_TRACKS } from './data/initialTracks';
 
 const Player = React.forwardRef<any, any>((props, ref) => {
-  const { onDurationChange, onWaiting, onPlaying, ...rest } = props;
+  const { onDurationChange, onWaiting, onPlaying, onPlay, ...rest } = props;
   const RP = ReactPlayer as any;
   return (
     <RP
@@ -46,6 +46,7 @@ const Player = React.forwardRef<any, any>((props, ref) => {
       onDurationChange={onDurationChange}
       onWaiting={onWaiting}
       onPlaying={onPlaying}
+      onPlay={onPlay}
     />
   );
 });
@@ -668,7 +669,7 @@ export default function App() {
             'transition-all duration-700 ease-in-out overflow-hidden',
             player.isClipMode
               ? (isPipActive ? 'fixed bottom-[100px] right-[24px] w-[200px] h-[112px] z-[200] rounded-2xl shadow-2xl border border-white/10 cursor-pointer group/clippip' : 'absolute inset-0 z-[180] pointer-events-auto bg-black')
-              : 'fixed opacity-0 w-[400px] h-[300px] -bottom-[2000px] pointer-events-none', // Lecteur virtuel hors écran pour l'audio!
+              : 'absolute inset-0 z-[-1] opacity-[0.01] pointer-events-none', // Lecteur virtuel en arrière-plan pour l'audio
           )}
           onClick={isPipActive ? () => setIsPipActive(false) : undefined}
         >
@@ -682,13 +683,12 @@ export default function App() {
           )}
         {player.youtubeId && hasStarted && (
           <Player
-            key={`clip-${player.youtubeId}`}
             ref={player.reactPlayerRef}
             url={`https://www.youtube.com/watch?v=${player.youtubeId}`}
-            playing={player.isPlaying && !player.currentTrack?.id.startsWith('local-')}
+            playing={player.isPlaying && player.isClipMode && !player.currentTrack?.id.startsWith('local-')}
             controls={true}
-            volume={player.isMuted ? 0 : player.volume}
-            muted={false}
+            volume={player.volume}
+            muted={player.isMuted}
             playbackRate={player.playbackRate}
             onProgress={player.handleTimeUpdate}
             onDurationChange={player.handleDurationChange}
@@ -697,8 +697,11 @@ export default function App() {
             progressInterval={500}
             config={{
               youtube: {
-                rel: 0,
-                origin: window.location.origin
+                playerVars: {
+                  rel: 0,
+                  origin: window.location.origin,
+                  autoplay: 1
+                }
               }
             }}
             onReady={() => {

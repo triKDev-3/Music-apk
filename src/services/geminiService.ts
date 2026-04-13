@@ -1,19 +1,5 @@
-import { GoogleGenAI, Modality } from "@google/genai";
 import { Track } from "../types";
 import { getMockResults } from "./youtubeService";
-
-// Use process.env.GEMINI_API_KEY for free models
-const ai = new GoogleGenAI({ 
-  apiKey: process.env.GEMINI_API_KEY || "",
-});
-
-/**
- * Creates a new instance of GoogleGenAI using the user-selected API key.
- * Required for Lyria and other paid models.
- */
-const getPaidAI = () => {
-  return new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
-};
 
 // Base de données de chansons réelles pour enrichir les résultats Gemini
 const REAL_TRACKS_BY_MOOD: Record<string, Track[]> = {
@@ -45,55 +31,35 @@ const REAL_TRACKS_BY_MOOD: Record<string, Track[]> = {
   ],
 };
 
-/** Recherche des musiques par requête texte (fallback vers Gemini) */
+/** Recherche des musiques par requête texte (fallback vers Gemini via API backend) */
 export async function searchMusic(query: string): Promise<Track[]> {
   try {
-    const geminiPromise = ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: [{
-        role: "user",
-        parts: [{
-          text: `Agis comme l'API de base de données de Spotify/YouTube Music. La requête de l'utilisateur est : "${query}".
-          IMPORTANT: Tu DOIS renvoyer EXACTEMENT 20 résultats pertinents. Pas 5, ni 8. 
-          Renvoyer UNIQUEMENT un tableau JSON natif (pas de balises Markdown \`\`\`json).
-          
-          Format attendu :
-          [
-            {"id":"...","title":"...","artist":"...","album":"...","coverUrl":"https://i.ytimg.com/vi/YOUTUBE_ID/hqdefault.jpg","duration": 180,"youtubeId":"YOUTUBE_ID"}
-          ]
-          
-          RÈGLES VITALES :
-          1. Les "youtubeId" DOIVENT être 100% réels et exacts (ceux des vrais clips YouTube).
-          2. Ne mets rien d'autre que du JSON.
-          3. S'il y a plusieurs artistes dans le titre (feat/ft), garde-les dans le titre.
-          `
-        }]
-      }],
-      config: { responseMimeType: "application/json" }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    const res = await fetch((import.meta.env.VITE_API_URL || "") + "/api/search/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, type: "search" }),
+      signal: controller.signal
     });
-
-    const timeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error('Gemini Timeout')), 15000)
-    );
-
-    const response = await Promise.race([geminiPromise, timeoutPromise]);
-
-    let text = response.text;
-    if (!text) return getMockResults(query);
     
-    // Nettoyage des balises Markdown (ex: ```json ... ```) 
-    text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    
-    const parsed = JSON.parse(text);
-    return (Array.isArray(parsed) ? parsed : []).map((t: Track, index: number) => ({
-      ...t,
-      // Défense contre les fausses ID
-      id: t.youtubeId ? `gemini-${t.youtubeId}-${index}` : `fallback-${index}`,
-      coverUrl: t.youtubeId 
-        ? `https://i.ytimg.com/vi/${t.youtubeId}/hqdefault.jpg` 
-        : t.coverUrl,
-      duration: t.duration || Math.floor(Math.random() * (240 - 150) + 150), // Durée Random entre 2:30 et 4:00 si manquant
-    }));
+    clearTimeout(timeoutId);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+         return data.map((t: any, index: number) => ({
+           ...t,
+           id: t.youtubeId ? `gemini-${t.youtubeId}-${index}` : `fallback-${index}`,
+           coverUrl: t.youtubeId 
+             ? `https://i.ytimg.com/vi/${t.youtubeId}/hqdefault.jpg` 
+             : t.coverUrl,
+           duration: t.duration || Math.floor(Math.random() * (240 - 150) + 150),
+         }));
+      }
+    }
+    return getMockResults(query);
   } catch (e) {
     console.error("Gemini Search Error:", e);
     return getMockResults(query);
@@ -102,36 +68,24 @@ export async function searchMusic(query: string): Promise<Track[]> {
 
 /** Récupère des playlists par ambiance via Gemini + enrichit avec des tracks réels */
 export async function getMoodPlaylists(mood: string): Promise<Track[]> {
-  // Retourner d'abord les tracks réels pour cette ambiance
   const realTracks = REAL_TRACKS_BY_MOOD[mood] || [];
   
-  // Essayer d'enrichir avec Gemini
   try {
-    const geminiPromise = ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: [{
-        role: "user",
-        parts: [{
-          text: `Tu es un DJ expert. Suggère 6 chansons populaires françaises et internationales pour une ambiance "${mood}".
-          Concentre-toi sur des artistes comme : Tiakola, Gazo, Ninho, SCH, Damso, Aya Nakamura, Jul, Booba, Drake, The Weeknd, etc.
-          IMPORTANT: Retourne UNIQUEMENT un tableau JSON valide avec des youtubeId RÉELS de YouTube.
-          Format: [{"id":"yt_ID","title":"Titre","artist":"Artiste","album":"Album","coverUrl":"https://i.ytimg.com/vi/YOUTUBE_ID/hqdefault.jpg","duration":180,"youtubeId":"YOUTUBE_ID"}]`
-        }]
-      }],
-      config: { responseMimeType: "application/json" }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    const res = await fetch((import.meta.env.VITE_API_URL || "") + "/api/search/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: mood, type: "mood" }),
+      signal: controller.signal
     });
 
-    const timeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error('Gemini Mood Timeout')), 10000)
-    );
+    clearTimeout(timeoutId);
 
-    const response = await Promise.race([geminiPromise, timeoutPromise]);
-
-    let text = response.text;
-    if (text) {
-      text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      const parsed = JSON.parse(text);
-      const geminiTracks = Array.isArray(parsed) ? parsed.map((t: Track) => ({
+    if (res.ok) {
+      const data = await res.json();
+      const geminiTracks = Array.isArray(data) ? data.map((t: any) => ({
         ...t,
         coverUrl: t.youtubeId 
           ? `https://i.ytimg.com/vi/${t.youtubeId}/hqdefault.jpg` 
@@ -139,7 +93,6 @@ export async function getMoodPlaylists(mood: string): Promise<Track[]> {
         duration: t.duration || 180,
       })) : [];
       
-      // Fusionner : tracks réels en premier, puis suggestions Gemini (sans doublons)
       const combined = [...realTracks];
       for (const gt of geminiTracks) {
         if (!combined.find(t => t.youtubeId === gt.youtubeId)) {
@@ -152,27 +105,23 @@ export async function getMoodPlaylists(mood: string): Promise<Track[]> {
     console.error("Gemini Mood Error:", e);
   }
   
-  // Fallback : uniquement les tracks réels
   return realTracks;
 }
 
-/** Récupère les paroles d'une chanson via Gemini avec Search Grounding */
+/** Récupère les paroles d'une chanson via Gemini avec Search Grounding via l'API locale */
 export async function getLyrics(title: string, artist: string): Promise<string> {
-  const prompt = `Trouve les paroles complètes de la chanson "${title}" par "${artist}". 
-  Réponds uniquement avec le texte des paroles, sans introduction ni conclusion. 
-  Si tu ne trouves pas, indique "Paroles non disponibles pour ce titre."`;
-
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: {
-        tools: [{ googleSearch: {} }]
-      }
+    const res = await fetch((import.meta.env.VITE_API_URL || "") + "/api/lyrics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ track: { title, artist } })
     });
     
-    const text = response.text;
-    return text || "Paroles non disponibles.";
+    if (res.ok) {
+      const data = await res.json();
+      return data.lyrics || "Paroles non disponibles.";
+    }
+    return "Erreur lors du chargement des paroles.";
   } catch (err) {
     console.error('[Gemini] Lyrics error:', err);
     return "Erreur lors du chargement des paroles.";
@@ -180,88 +129,18 @@ export async function getLyrics(title: string, artist: string): Promise<string> 
 }
 
 /** 
- * Génère de la musique via Lyria 
- * @param prompt Description de la musique à générer
- * @param isFullLength Si vrai, utilise lyria-3-pro-preview (full track), sinon lyria-3-clip-preview (30s)
+ * L'API de génération complète via lyria n'est plus gérée sur le client.
+ * Celles-ci ne seront pas disponibles nativement sans un proxy complet.
  */
 export async function generateMusic(prompt: string, isFullLength: boolean = false): Promise<{ url: string, lyrics?: string }> {
-  const paidAi = getPaidAI();
-  const model = isFullLength ? "lyria-3-pro-preview" : "lyria-3-clip-preview";
-
-  try {
-    const response = await paidAi.models.generateContentStream({
-      model: model,
-      contents: prompt,
-    });
-
-    let audioBase64 = "";
-    let lyrics = "";
-    let mimeType = "audio/wav";
-
-    for await (const chunk of response) {
-      const parts = chunk.candidates?.[0]?.content?.parts;
-      if (!parts) continue;
-      for (const part of parts) {
-        if (part.inlineData?.data) {
-          if (!audioBase64 && part.inlineData.mimeType) {
-            mimeType = part.inlineData.mimeType;
-          }
-          audioBase64 += part.inlineData.data;
-        }
-        if (part.text && !lyrics) {
-          lyrics = part.text;
-        }
-      }
-    }
-
-    if (!audioBase64) throw new Error("Aucun audio généré");
-
-    // Décodage base64 en Blob
-    const binary = atob(audioBase64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    const blob = new Blob([bytes], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-
-    return { url, lyrics };
-  } catch (err) {
-    console.error('[Lyria] Music generation error:', err);
-    throw err;
-  }
+  console.warn("generateMusic is unsupported on the client. It requires a backend implementation with an AI proxy.");
+  throw new Error("Music generation is unsupported without backend implementation.");
 }
 
 /**
- * Analyse une image pour suggérer de la musique (Multimodal)
+ * Analyse une image pour suggérer de la musique (Multimodal) (Désactivé sur client pour éviter plantages process.env)
  */
 export async function suggestMusicFromImage(base64Image: string, mimeType: string): Promise<Track[]> {
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: {
-        parts: [
-          { text: "Analyse cette image et suggère 5 chansons réelles qui correspondent à l'ambiance visuelle. Retourne UNIQUEMENT un tableau JSON avec title, artist, album, youtubeId." },
-          { inlineData: { data: base64Image, mimeType } }
-        ]
-      },
-      config: { responseMimeType: "application/json" }
-    });
-
-    let text = response.text;
-    if (!text) return [];
-    text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    const parsed = JSON.parse(text);
-    
-    return (Array.isArray(parsed) ? parsed : []).map((t: any, index: number) => ({
-      ...t,
-      id: `ai-img-${index}`,
-      coverUrl: t.youtubeId ? `https://i.ytimg.com/vi/${t.youtubeId}/hqdefault.jpg` : 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=400&fit=crop',
-      duration: 180,
-      source: 'youtube'
-    }));
-  } catch (err) {
-    console.error('[Gemini] Image analysis error:', err);
-    return [];
-  }
+  console.warn("suggestMusicFromImage is unsupported on the client.");
+  return [];
 }

@@ -16,7 +16,7 @@ async function getAccessToken(): Promise<string | null> {
   }
 
   try {
-    const response = await fetch('/api/spotify/token');
+    const response = await fetch((import.meta.env.VITE_API_URL || "") + '/api/spotify/token');
     const data = await response.json();
     if (data.access_token) {
       accessToken = data.access_token;

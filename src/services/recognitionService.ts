@@ -54,7 +54,7 @@ async function fallbackToGemini(audioBlob: Blob): Promise<Track | null> {
   });
 
   try {
-    const response = await fetch('/api/recognize', {
+    const response = await fetch((import.meta.env.VITE_API_URL || "") + '/api/recognize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
