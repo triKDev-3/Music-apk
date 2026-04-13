@@ -22,7 +22,7 @@ export function Header({
   user, authLoading, isScanning, onRecognitionOpen
 }: HeaderProps) {
   return (
-    <header className="h-16 flex items-center justify-between px-4 md:px-8 z-10 flex-shrink-0">
+    <header className="h-16 flex items-center justify-between px-4 md:px-8 z-50 flex-shrink-0 relative">
       <div className="flex items-center gap-2 md:gap-4">
         {/* Hamburger — mobile only */}
         <button

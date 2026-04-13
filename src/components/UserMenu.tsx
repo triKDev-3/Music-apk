@@ -52,7 +52,7 @@ export function UserMenu({ user, loading }: UserMenuProps) {
 
       {open && (
         <div
-          className="absolute right-0 mt-2 w-48 rounded-xl shadow-2xl overflow-hidden z-50"
+          className="absolute right-0 mt-2 w-48 rounded-xl shadow-2xl overflow-hidden z-[9999]"
           style={{ background: 'var(--bg-sidebar)', border: '1px solid var(--border)' }}
         >
           <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>

@@ -79,6 +79,15 @@ export const logout = async () => {
   setYouTubeOAuthToken(null);
   localStorage.removeItem('playme_youtube_token');
   if (!auth) return;
+  
+  try {
+    if (Capacitor.isNativePlatform()) {
+      await GoogleAuth.signOut();
+    }
+  } catch (e) {
+    console.error('[Auth] Native sign out error:', e);
+  }
+  
   await signOut(auth);
   window.location.reload();
 };
