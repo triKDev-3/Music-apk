@@ -163,8 +163,8 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
           }
         })
         .catch(err => {
-          console.error('[Player] Audio extraction error (Proxy):', err);
-          if (!isCancelled) setLocalUrl(null);
+          console.error('[Player] All extraction methods failed, falling back to ReactPlayer:', err);
+          if (!isCancelled) setLocalUrl(null); // This triggers ReactPlayer in App.tsx
         });
     } else {
       setLocalUrl(null);

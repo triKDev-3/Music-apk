@@ -184,22 +184,35 @@ app.get("/api/stream", async (req, res) => {
   }
 });
 
-// PipedAPI Proxy pour éviter les erreurs CORS sur le frontend
+// PipedAPI Proxy avec rotation d'instances pour une fiabilité maximale
 app.get("/api/piped-streams/:id", async (req, res) => {
   const { id } = req.params;
-  // Allow CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET');
-  
-  try {
-    const response = await fetch(`https://pipedapi.kavin.rocks/streams/${id}`);
-    if (!response.ok) throw new Error("PipedAPI request failed");
-    const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error("[PipedProxy] Error:", error);
-    res.status(500).json({ error: "Failed to fetch piped streams" });
+
+  const instances = [
+    "https://pipedapi.kavin.rocks",
+    "https://pipedapi.leptons.xyz",
+    "https://pipedapi.notsharing.org",
+    "https://api.piped.privacydev.net"
+  ];
+
+  for (const instance of instances) {
+    try {
+      console.log(`[PipedProxy] Attempting instance: ${instance} for ID: ${id}`);
+      const response = await fetch(`${instance}/streams/${id}`, { signal: AbortSignal.timeout(4000) });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.audioStreams && data.audioStreams.length > 0) {
+          console.log(`[PipedProxy] Success with ${instance}`);
+          return res.json(data);
+        }
+      }
+    } catch (err) {
+      console.warn(`[PipedProxy] Instance ${instance} failed, trying next...`);
+    }
   }
+
+  res.status(503).json({ error: "All Piped instances are currently unavailable" });
 });
 
 // YouTube Search API
