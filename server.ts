@@ -3,7 +3,7 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenAI, Type } from "@google/genai";
-import { initDatabase, getCachedSearch, setCachedSearch, isUsingMemoryCache } from "./server/db.ts";
+import { initDatabase, getCachedSearch, setCachedSearch, isUsingMemoryCache } from "./server/db";
 import "dotenv/config";
 import { spawn } from "child_process";
 import yts from "yt-search";
