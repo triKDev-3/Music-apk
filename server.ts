@@ -197,15 +197,19 @@ app.get("/api/piped-streams/:id", async (req, res) => {
 
   for (const instance of instances) {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      
       const response = await fetch(`${instance}/streams/${id}`, { 
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36' },
-        signal: AbortSignal.timeout(2500) 
-      });
+        signal: controller.signal
+      }).finally(() => clearTimeout(timeoutId));
+
       if (response.ok) {
         const data = await response.json();
-        if (data.audioStreams && data.audioStreams.length > 0) return res.json(data);
+        if (data && data.audioStreams && data.audioStreams.length > 0) return res.json(data);
       }
-    } catch (err) { /* Next */ }
+    } catch (err) { /* Instance failed, next... */ }
   }
   res.status(503).json({ error: "Service temporarily unavailable" });
 });
