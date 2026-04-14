@@ -141,10 +141,9 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
         }
       });
     } else if (currentTrack?.youtubeId) {
-      // Utiliser le flux proxy backend direct avec ytdl-core plutôt que les instances publiques instables de PipedAPI
-      const proxyAudioUrl = `${import.meta.env.VITE_API_URL || ""}/api/stream?id=${currentTrack.youtubeId}`;
-      console.log('[Player] Using Direct Backend Stream Proxy:', proxyAudioUrl);
-      setLocalUrl(proxyAudioUrl);
+      // ReactPlayer gère le streaming YouTube via l'iframe officiel (pas de proxy nécessaire)
+      console.log('[Player] YouTube track — ReactPlayer will handle playback via iframe');
+      setLocalUrl(null);
     } else {
       setLocalUrl(null);
     }
@@ -452,69 +451,28 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
     // On cherche un clip si :
     // 1. On n'a pas de youtubeId du tout (ex: Spotify, local)
     // 2. On a un youtubeId mais on veut s'assurer d'avoir le "Clip Officiel" pour le mode vidéo
+    // On cherche un youtubeId UNIQUEMENT si on n'en a pas encore (Spotify, local sans ID)
     const needsAudioId = !currentTrack.youtubeId || currentTrack.youtubeId === 'local-blob';
+    if (!needsAudioId) return; // Ne pas remplacer un ID déjà valide — évite les boucles
     
     const fetchClip = async () => {
       try {
-        let audioId = currentTrack.youtubeId;
-        let foundOfficial = false;
-
-        // 1. Recherche initiale (Audio + Clip potentiel)
         console.log('[Background Search] Searching for:', currentTrack.title);
         const query = `${currentTrack.artist} ${currentTrack.title}`;
         const ytResults = await searchYouTube(query);
         
         if (ytResults && ytResults.length > 0) {
           const topResult = ytResults[0];
-          audioId = topResult.youtubeId;
-          
-          // On vérifie si le premier résultat est déjà un clip officiel
-          const titleLower = topResult.title.toLowerCase();
-          foundOfficial = titleLower.includes('official') || titleLower.includes('clip') || titleLower.includes('video');
-
-          // Mise à jour immédiate pour l'audio (si on n'avait rien ou si on avait local-blob)
           setCurrentTrack(prev => {
             if (prev && prev.id === currentTrack.id && (!prev.youtubeId || prev.youtubeId === 'local-blob')) {
-              console.log('[Background Search] Found initial ID for', currentTrack.title, ':', audioId);
-              return { 
-                ...prev, 
-                youtubeId: audioId,
-                coverUrl: topResult.coverUrl || prev.coverUrl,
-                duration: topResult.duration || prev.duration
-              };
+              console.log('[Background Search] Found ID for', currentTrack.title, ':', topResult.youtubeId);
+              return { ...prev, youtubeId: topResult.youtubeId, coverUrl: topResult.coverUrl || prev.coverUrl, duration: topResult.duration || prev.duration };
             }
             return prev;
           });
         }
-
-        // 2. Si on n'a pas encore trouvé de clip officiel, on fait une recherche plus spécifique
-        if (!foundOfficial) {
-          console.log('[Background Search] Searching for official clip for:', currentTrack.title);
-          const clipQuery = `${currentTrack.artist} ${currentTrack.title} official video clip`;
-          const clipResults = await searchYouTube(clipQuery);
-          
-          if (clipResults && clipResults.length > 0) {
-            const clipResult = clipResults[0];
-            
-            setCurrentTrack(prev => {
-              if (prev && prev.id === currentTrack.id) {
-                // On met à jour si l'ID est différent (on a trouvé mieux)
-                if (prev.youtubeId !== clipResult.youtubeId) {
-                  console.log('[Background Search] Found better official clip for', currentTrack.title, ':', clipResult.youtubeId);
-                  return { 
-                    ...prev, 
-                    youtubeId: clipResult.youtubeId,
-                    coverUrl: clipResult.coverUrl || prev.coverUrl,
-                    duration: clipResult.duration || prev.duration
-                  };
-                }
-              }
-              return prev;
-            });
-          }
-        }
       } catch (err) {
-        console.error('[Background Search] Failed to find clip:', err);
+        console.error('[Background Search] Failed:', err);
       }
     };
 
