@@ -9,8 +9,6 @@ import { spawn } from "child_process";
 import yts from "yt-search";
 import YTMusic from "ytmusic-api";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 initDatabase();
 
