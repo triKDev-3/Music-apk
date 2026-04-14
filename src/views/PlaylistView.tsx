@@ -46,7 +46,7 @@ export function PlaylistView({
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="w-48 h-48 md:w-64 md:h-64 rounded-[40px] shadow-xl overflow-hidden bg-white border border-black/5"
+            className="w-48 h-48 md:w-64 md:h-64 rounded-[40px] shadow-xl overflow-hidden bg-[var(--bg-card)] border border-[var(--border)]"
           >
             {playlist.tracks[0] ? (
               <img 
@@ -145,7 +145,7 @@ export function PlaylistView({
           placeholder="Rechercher..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-white border border-black/5 rounded-full py-3 pl-12 pr-12 text-sm outline-none focus:border-[var(--accent)] shadow-sm transition-all"
+          className="w-full bg-[var(--bg-input)] border border-[var(--border)] rounded-full py-3 pl-12 pr-12 text-sm outline-none focus:border-[var(--accent)] shadow-sm transition-all"
           style={{ color: 'var(--text-primary)' }}
         />
         {searchQuery && (

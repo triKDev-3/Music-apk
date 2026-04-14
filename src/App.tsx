@@ -269,12 +269,19 @@ export default function App() {
   useEffect(() => {
     if (user?.uid) {
       import('./services/dbService').then(({ saveUserData }) => {
-        // STERILIZATION: Do NOT send binary blobs (fileBlob) to Firestore
-        const sterileLocalTracks = localTracks.map(t => {
+        // STERILIZATION: Recursively remove binary blobs (fileBlob) from all track objects
+        const sanitizeTrack = (t: Track) => {
           const { fileBlob, ...metadata } = t;
           return metadata;
-        });
-        saveUserData(user.uid, { playlists, localTracks: sterileLocalTracks });
+        };
+
+        const sterileLocalTracks = localTracks.map(sanitizeTrack);
+        const sterilePlaylists = playlists.map(p => ({
+          ...p,
+          tracks: p.tracks.map(sanitizeTrack)
+        }));
+
+        saveUserData(user.uid, { playlists: sterilePlaylists, localTracks: sterileLocalTracks });
       });
     } else {
       localStorage.setItem('playme_playlists', JSON.stringify(playlists));
@@ -807,10 +814,12 @@ export default function App() {
 
           {/* Audio HTML5 — fichiers locaux */}
           <audio
+            key={player.localUrl || 'no-url'}
             ref={player.audioRef}
             src={player.localUrl || undefined}
             onEnded={() => player.handleEnded()}
             loop={player.repeatMode === 'one'}
+            crossOrigin="anonymous"
             style={{ display: 'none' }}
             preload="auto"
           />

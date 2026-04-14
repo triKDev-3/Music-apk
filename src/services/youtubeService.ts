@@ -86,7 +86,8 @@ export async function searchYouTube(query: string): Promise<Track[]> {
     // SYSTEMATIC FALLBACK: Status 401 (Unauthorized), 403 (Quota), or 400 (Bad Request)
     if (res.status === 401 || res.status === 403 || res.status === 400) {
       console.warn(`[YouTube] API returned ${res.status}. Switching to Backend for query: "${sanitizedQuery}"`);
-      if (res.status === 403) _isQuotaExceeded = true;
+      // Si 400 ou 403, on marque le quota comme dépassé pour ne plus polluer la console
+      _isQuotaExceeded = true;
       return fetchFromBackend(sanitizedQuery);
     }
 
@@ -153,27 +154,19 @@ export async function searchYouTube(query: string): Promise<Track[]> {
  * @returns Array of tracks from the backend proxy.
  */
 async function fetchFromBackend(query: string): Promise<Track[]> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-    
     try {
         console.log(`[YouTube] Backend fallback search for: "${query}"`);
-        const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/search/youtube?q=${encodeURIComponent(query)}`, { 
-          signal: controller.signal 
-        });
-        clearTimeout(timeoutId);
+        const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/search/youtube?q=${encodeURIComponent(query)}`);
 
         if (res.ok) {
-            const contentType = res.headers.get("content-type");
-            if (contentType && contentType.includes("application/json")) {
-                const data = await res.json();
-                const results = Array.isArray(data) ? data : (data.items || []);
-                if (results.length > 0) return results;
-            }
+            const data = await res.json();
+            const results = Array.isArray(data) ? data : (data.items || []);
+            console.log(`[YouTube] Backend results found: ${results.length}`);
+            if (results.length > 0) return results;
         }
-        return getMockResults(query); // Final fallback to static mock
+        console.warn(`[YouTube] Backend returned status ${res.status}`);
+        return getMockResults(query);
     } catch (e) {
-        clearTimeout(timeoutId);
         console.error('[YouTube] Backend search failed:', e);
         return getMockResults(query);
     }

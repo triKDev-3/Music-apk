@@ -8,6 +8,7 @@ import "dotenv/config";
 import { spawn } from "child_process";
 import yts from "yt-search";
 import YTMusic from "ytmusic-api";
+import ytdl from "@distube/ytdl-core";
 
 
 initDatabase();
@@ -105,65 +106,116 @@ app.get("/api/spotify/token", async (req, res) => {
   }
 });
 
-// YouTube Stream Proxy — via instances Invidious (fiable sur Vercel)
+// YouTube Stream Proxy — Système Triple-Niveau (ytdl-core -> yt-dlp -> Invidious)
 app.get("/api/stream", async (req, res) => {
   const id = req.query.id as string;
   if (!id) return res.status(400).send("ID is required");
 
   res.setHeader("Access-Control-Allow-Origin", "*");
 
-  // Instances Invidious publiques robustes (rotation)
-  const invidiousInstances = [
-    "https://invidious.jing.rocks",
-    "https://vid.puffyan.us",
-    "https://inv.riverside.rocks",
-    "https://invidious.slipfox.xyz",
-    "https://y.com.sb",
-    "https://invidious.privacydev.net",
-  ];
+  // --- NIVEAU 1 : ytdl-core (Direct Piping) ---
+  try {
+    console.log(`[Stream] L1: Extraction ytdl-core pour: ${id}`);
+    const info = await ytdl.getInfo(id, {
+      requestOptions: {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        }
+      }
+    });
+    
+    let format = ytdl.chooseFormat(info.formats, { quality: 'highestaudio', filter: 'audioonly' });
+    if (!format) format = info.formats.find(f => f.hasAudio && f.url);
 
-  for (const instance of invidiousInstances) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-      const response = await fetch(`${instance}/api/v1/videos/${id}?fields=adaptiveFormats,formatStreams`, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; PlayMe/1.0)" },
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) continue;
-
-      const data = await response.json() as any;
-
-      // Chercher le meilleur flux audio uniquement
-      const formats: any[] = [
-        ...(data.adaptiveFormats || []),
-        ...(data.formatStreams || []),
-      ];
-
-      const audioFormats = formats.filter(f =>
-        f.type && f.type.startsWith("audio/") && f.url
-      );
-
-      if (audioFormats.length === 0) continue;
-
-      // Trier par bitrate décroissant
-      audioFormats.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
-      const best = audioFormats[0];
-
-      console.log(`[Stream] Invidious proxy OK (${instance}) pour: ${id}`);
-      // Rediriger vers le flux direct (le navigateur gère le streaming)
-      return res.redirect(best.url);
-    } catch (err) {
-      console.warn(`[Stream] Instance ${instance} failed:`, err);
-      continue;
+    if (format?.url) {
+      console.log(`[Stream] L1 Succès. Piping (${format.container})...`);
+      res.setHeader("Content-Type", format.mimeType?.split(';')[0] || "audio/mpeg");
+      if (format.contentLength) res.setHeader("Content-Length", format.contentLength);
+      return ytdl(id, { format }).pipe(res);
     }
+  } catch (err: any) {
+    console.warn(`[Stream] L1 Échec (${id}): ${err.message}`);
   }
 
-  console.error(`[Stream] Toutes les instances Invidious ont échoué pour: ${id}`);
-  res.status(500).send("Stream extraction failed");
+  // --- NIVEAU 2 : yt-dlp (Redirection de lien direct) ---
+  try {
+    console.log(`[Stream] L2: Tentative fallback yt-dlp pour: ${id}`);
+    const ytDlp = spawn("yt-dlp", ["-g", "--no-warnings", "-f", "ba/b", `https://www.youtube.com/watch?v=${id}`], { shell: true });
+    let directUrl = "";
+    let errorLog = "";
+    ytDlp.stdout.on("data", (data) => directUrl += data.toString());
+    ytDlp.stderr.on("data", (data) => errorLog += data.toString());
+    
+    ytDlp.on("error", (err) => {
+      console.error(`[Stream] L2 Erreur de lancement yt-dlp:`, err.message);
+    });
+
+    const success = await new Promise((resolve) => {
+      ytDlp.on("close", (code) => {
+        if (code === 0 && directUrl.trim()) {
+           console.log(`[Stream] L2 Succès.`);
+           res.redirect(directUrl.trim().split('\n')[0]);
+           resolve(true);
+        } else {
+           console.warn(`[Stream] L2 Échec (code ${code}): ${errorLog.slice(0, 100)}`);
+           resolve(false);
+        }
+      });
+      setTimeout(() => { ytDlp.kill(); resolve(false); }, 15000);
+    });
+
+    if (success) return;
+  } catch (err: any) {
+    console.warn(`[Stream] L2 Erreur système: ${err.message}`);
+  }
+
+  // --- NIVEAU 3 : Cobalt API (Backup très performant) ---
+  try {
+    console.log(`[Stream] L3: Tentative Cobalt API pour: ${id}`);
+    const cobaltRes = await fetch("https://api.cobalt.tools/api/json", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ url: `https://www.youtube.com/watch?v=${id}`, downloadMode: "audio", audioFormat: "mp3" })
+    });
+    const cobaltData = await cobaltRes.json() as any;
+    if (cobaltData?.url) {
+      console.log(`[Stream] L3 Succès via Cobalt.`);
+      return res.redirect(cobaltData.url);
+    }
+  } catch (err) {
+    console.warn(`[Stream] L3 Échec: Cobalt indisponible.`);
+  }
+
+  // --- NIVEAU 4 : Invidious Instances (Dernier recours) ---
+  console.log(`[Stream] L4: Backup ultime Invidious pour: ${id}`);
+  const instances = [
+    "https://invidious.jing.rocks",
+    "https://vid.puffyan.us",
+    "https://invidious.slipfox.xyz",
+    "https://y.com.sb",
+    "https://iv.ggtyler.dev",
+    "https://invidious.projectsegfau.lt"
+  ];
+
+  for (const instance of instances) {
+    try {
+      const response = await fetch(`${instance}/api/v1/videos/${id}?fields=formatStreams,adaptiveFormats`, {
+         headers: { "User-Agent": "Mozilla/5.0" }
+      });
+      if (!response.ok) continue;
+      const data = await response.json() as any;
+      const formats = [...(data.adaptiveFormats || []), ...(data.formatStreams || [])];
+      const audio = formats.find(f => f.type && f.type.startsWith("audio/") && f.url);
+      
+      if (audio?.url) {
+        console.log(`[Stream] L3 Succès via ${instance}. Redirecting...`);
+        return res.redirect(audio.url);
+      }
+    } catch (e) { continue; }
+  }
+
+  console.error(`[Stream] ABSOLUTE FAILURE for ${id}. All methods exhausted.`);
+  res.status(500).json({ error: "Stream extraction failed after 3 levels of fallback" });
 });
 
 // PipedAPI Proxy (gardé comme fallback secondaire)

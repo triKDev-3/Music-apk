@@ -47,7 +47,7 @@ export function LibraryView({
           <select 
             value={sortBy} 
             onChange={(e) => onSortChange(e.target.value as any)}
-            className="bg-white border border-black/5 text-[var(--text-primary)] text-xs font-bold rounded-full px-4 outline-none shadow-sm cursor-pointer"
+            className="bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-primary)] text-xs font-bold rounded-full px-4 outline-none shadow-sm cursor-pointer"
           >
             <option value="date">Date</option>
             <option value="title">Titre</option>
@@ -56,7 +56,7 @@ export function LibraryView({
 
           <button 
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 rounded-full border border-black/5 bg-white text-[var(--text-primary)] font-bold text-sm shadow-sm hover:translate-y-[-2px] transition-transform"
+            className="flex items-center gap-2 px-4 py-2 rounded-full border border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] font-bold text-sm shadow-sm hover:translate-y-[-2px] transition-transform"
           >
             <Upload size={18} />
             Importer
@@ -95,7 +95,7 @@ export function LibraryView({
               key={playlist.id} 
               whileHover={{ y: -4 }}
               onClick={() => onPlaylistClick(playlist.id)}
-              className="group p-3 rounded-[32px] transition-all cursor-pointer bg-white shadow-sm border border-transparent hover:border-black/5 hover:shadow-md" 
+              className="group p-3 rounded-[32px] transition-all cursor-pointer bg-[var(--bg-card)] shadow-sm border border-transparent hover:border-[var(--border)] hover:shadow-md" 
             >
               <div className="relative aspect-square mb-3 rounded-[24px] flex items-center justify-center overflow-hidden bg-gray-50">
                 {playlist.tracks.length > 0 ? (
@@ -143,7 +143,7 @@ export function LibraryView({
         </section>
       )}
 
-      <section className="bg-white rounded-[32px] p-8 border border-black/5 shadow-sm">
+      <section className="bg-[var(--bg-card)] rounded-[32px] p-8 border border-[var(--border)] shadow-sm">
         <h3 className="text-xl font-black mb-6 tracking-tight" style={{ color: 'var(--text-primary)' }}>Stats</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           <div className="space-y-1">

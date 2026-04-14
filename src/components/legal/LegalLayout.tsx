@@ -19,10 +19,10 @@ export const LegalLayout: React.FC<LegalLayoutProps> = ({ onAccept }) => {
       <motion.div 
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="max-w-2xl w-full bg-white rounded-[48px] shadow-2xl border border-black/5 flex flex-col max-h-[90vh] overflow-hidden"
+        className="max-w-2xl w-full bg-[var(--bg-card)] rounded-[48px] shadow-2xl border border-[var(--border)] flex flex-col max-h-[90vh] overflow-hidden"
       >
         {/* Header */}
-        <div className="p-10 border-b border-black/5 flex flex-col items-center text-center space-y-4">
+        <div className="p-10 border-b border-[var(--border)] flex flex-col items-center text-center space-y-4">
           <div className="w-16 h-16 bg-[var(--accent)]/10 rounded-3xl flex items-center justify-center">
             <Shield className="text-[var(--accent)]" size={32} />
           </div>
@@ -76,7 +76,7 @@ export const LegalLayout: React.FC<LegalLayoutProps> = ({ onAccept }) => {
         </div>
 
         {/* Footer */}
-        <div className="p-10 bg-gray-50/50 border-t border-black/5 space-y-6">
+        <div className="p-10 bg-[var(--bg-hover)] border-t border-[var(--border)] space-y-6">
           <label className="flex items-start gap-4 cursor-pointer group">
             <div className="relative mt-0.5">
               <input 

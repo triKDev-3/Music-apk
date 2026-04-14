@@ -51,10 +51,10 @@ export function Header({
           onChange={e => setSearchQuery(e.target.value)}
           className="w-full rounded-2xl py-2.5 pl-9 pr-4 text-sm outline-none transition-all"
           style={{
-            background: 'white',
+            background: 'var(--bg-input)',
             color: 'var(--text-primary)',
-            border: '1px solid rgba(0,0,0,0.08)',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+            border: '1px solid var(--border)',
+            boxShadow: 'var(--shadow-card)',
           }}
           onFocus={e => { e.target.style.borderColor = 'var(--accent)'; }}
           onBlur={e => { e.target.style.borderColor = 'rgba(0,0,0,0.08)'; }}

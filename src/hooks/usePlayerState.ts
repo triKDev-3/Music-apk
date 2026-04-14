@@ -142,9 +142,15 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
         }
       });
     } else if (currentTrack?.youtubeId) {
-      // ReactPlayer gère le streaming YouTube via l'iframe officiel (pas de proxy nécessaire)
-      console.log('[Player] YouTube track — ReactPlayer will handle playback via iframe');
-      setLocalUrl(null);
+      if (!isClipMode) {
+        // En mode audio, on utilise le proxy backend pour une fiabilité maximale (évite les blocages d'iframe)
+        activeUrl = `/api/stream?id=${currentTrack.youtubeId}`;
+        setLocalUrl(activeUrl);
+        console.log('[Player] YouTube track — Using Backend Audio Proxy:', activeUrl);
+      } else {
+        // En mode clip, on laisse ReactPlayer utiliser l'iframe YouTube officiel
+        setLocalUrl(null);
+      }
     } else {
       setLocalUrl(null);
     }

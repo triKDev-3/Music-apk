@@ -23,11 +23,11 @@ export function TrackCard({ track, onPlay, isActive = false }: TrackCardProps) {
       className={clsx(
         "group p-3 rounded-[24px] transition-all duration-300 cursor-pointer border relative overflow-hidden",
         isActive 
-          ? "bg-white border-[var(--accent)] shadow-[0_12px_30px_rgba(255,64,103,0.1)]" 
-          : "bg-white border-transparent shadow-sm hover:shadow-md hover:border-black/5"
+          ? "bg-[var(--bg-card)] border-[var(--accent)] shadow-[0_12px_30px_rgba(255,64,103,0.1)]" 
+          : "bg-[var(--bg-card)] border-transparent shadow-sm hover:shadow-md hover:border-[var(--border)]"
       )}
     >
-      <div className="relative aspect-square mb-3 rounded-2xl overflow-hidden bg-gray-50">
+      <div className="relative aspect-square mb-3 rounded-2xl overflow-hidden bg-[var(--bg-base)]">
         <img 
           src={track.coverUrl || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=400&fit=crop'} 
           alt={track.title} 

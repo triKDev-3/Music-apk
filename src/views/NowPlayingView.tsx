@@ -206,7 +206,7 @@ export function NowPlayingView({
           <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>
             Now Playing
           </p>
-          <p className="text-sm font-semibold truncate max-w-[180px]" style={{ color: 'var(--text-primary)' }}>
+          <p className="text-[10px] font-semibold text-[var(--text-secondary)] truncate max-w-[180px]" style={{ color: 'var(--text-primary)' }}>
             {track.album || 'Play Me'}
           </p>
         </div>
@@ -214,7 +214,7 @@ export function NowPlayingView({
         <div className="relative">
           <button
             onClick={() => setShowMoreMenu(!showMoreMenu)}
-            className="p-2 rounded-full hover:bg-black/5 transition-colors"
+            className="p-2 rounded-full hover:bg-[var(--hover)] transition-colors"
             style={{ color: 'var(--text-secondary)' }}
           >
             <MoreHorizontal size={24} />
@@ -227,14 +227,14 @@ export function NowPlayingView({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, y: 8 }}
                 className="absolute top-12 right-0 w-64 rounded-2xl shadow-2xl p-2 z-[200]"
-                style={{ background: 'white', border: '1px solid rgba(0,0,0,0.08)' }}
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
                 onClick={e => e.stopPropagation()}
               >
                 {!showPlaylistPicker ? (
                   <div className="flex flex-col gap-1">
                     <button
                       onClick={() => { setShowPlaylistPicker(true); }}
-                      className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-black/5 text-sm font-semibold text-left transition-colors"
+                      className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-[var(--hover)] text-sm font-semibold text-left transition-colors"
                       style={{ color: 'var(--text-primary)' }}
                     >
                       <div className="flex items-center gap-3"><Plus size={18} /> Ajouter à une playlist</div>
@@ -242,15 +242,15 @@ export function NowPlayingView({
                     </button>
                     <button
                       onClick={() => { toggleFavorite(track.id); setShowMoreMenu(false); }}
-                      className="flex items-center gap-3 w-full px-4 py-3 rounded-xl hover:bg-black/5 text-sm font-semibold text-left transition-colors"
+                      className="flex items-center gap-3 w-full px-4 py-3 rounded-xl hover:bg-[var(--hover)] text-sm font-semibold text-left transition-colors"
                       style={{ color: isFav ? 'var(--accent)' : 'var(--text-primary)' }}
                     >
                       <Heart size={18} fill={isFav ? 'currentColor' : 'none'} />
                       {isFav ? 'Retirer des favoris' : 'Ajouter aux favoris'}
                     </button>
-                    <hr style={{ borderColor: 'rgba(0,0,0,0.06)' }} />
+                    <hr style={{ borderColor: 'var(--border)' }} />
                     <button
-                      className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-black/5 text-sm font-semibold text-left"
+                      className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-[var(--hover)] text-sm font-semibold text-left"
                       style={{ color: 'var(--text-primary)' }}
                       onClick={e => e.stopPropagation()}
                     >
@@ -262,7 +262,7 @@ export function NowPlayingView({
                             onClick={() => setPlaybackRate(v)}
                             className="px-1.5 py-0.5 rounded text-[10px] cursor-pointer font-bold"
                             style={{
-                              background: playbackRate === v ? 'var(--accent)' : 'rgba(0,0,0,0.06)',
+                              background: playbackRate === v ? 'var(--accent)' : 'var(--bg-app)',
                               color: playbackRate === v ? 'white' : 'var(--text-secondary)',
                             }}
                           >
@@ -276,7 +276,7 @@ export function NowPlayingView({
                   <div>
                     <button
                       onClick={() => setShowPlaylistPicker(false)}
-                      className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg mb-1 hover:bg-black/5"
+                      className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg mb-1 hover:bg-[var(--hover)]"
                       style={{ color: 'var(--accent)' }}
                     >
                       <ChevronLeft size={14} /> Retour
@@ -290,10 +290,10 @@ export function NowPlayingView({
                             setDialog({ isOpen: true, title: 'Succès', message: `Ajouté à "${p.name}"`, type: 'success' });
                             setShowMoreMenu(false);
                           }}
-                          className="flex items-center gap-3 w-full px-4 py-3 rounded-xl hover:bg-black/5 text-sm font-semibold text-left"
+                          className="flex items-center gap-3 w-full px-4 py-3 rounded-xl hover:bg-[var(--hover)] text-sm font-semibold text-left"
                           style={{ color: 'var(--text-primary)' }}
                         >
-                          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(0,0,0,0.06)' }}>
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--bg-app)' }}>
                             <Music2 size={14} style={{ color: 'var(--text-secondary)' }} />
                           </div>
                           <span className="truncate">{p.name}</span>
@@ -320,7 +320,7 @@ export function NowPlayingView({
         >
           <VinylDisc coverUrl={track.coverUrl} isPlaying={isPlaying} size={260} />
           {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-white/40 backdrop-blur-sm">
+            <div className="absolute inset-0 flex items-center justify-center rounded-full bg-[var(--bg-app)]/40 backdrop-blur-sm">
               <Loader2 size={40} className="animate-spin" style={{ color: 'var(--accent)' }} />
             </div>
           )}
@@ -397,7 +397,7 @@ export function NowPlayingView({
         <div className="flex items-center justify-between">
           <button
             onClick={skipToPrev}
-            className="p-3 transition-opacity hover:opacity-60"
+            className="p-3 transition-opacity hover:text-[var(--accent)]"
             style={{ color: 'var(--text-primary)' }}
           >
             <SkipBack size={32} fill="currentColor" />
@@ -419,7 +419,7 @@ export function NowPlayingView({
 
           <button
             onClick={skipToNext}
-            className="p-3 transition-opacity hover:opacity-60"
+            className="p-3 transition-opacity hover:text-[var(--accent)]"
             style={{ color: 'var(--text-primary)' }}
           >
             <SkipForward size={32} fill="currentColor" />
@@ -435,11 +435,11 @@ export function NowPlayingView({
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             className="absolute top-0 right-0 bottom-0 w-full sm:w-80 z-[180] flex flex-col shadow-2xl"
-            style={{ background: 'white', borderLeft: '1px solid rgba(0,0,0,0.06)' }}
+            style={{ background: 'var(--bg-sidebar)', borderLeft: '1px solid var(--border)' }}
           >
-            <div className="flex items-center justify-between px-6 pt-12 pb-4" style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+            <div className="flex items-center justify-between px-6 pt-12 pb-4" style={{ borderBottom: '1px solid var(--border)' }}>
               <h3 className="text-lg font-black" style={{ color: 'var(--text-primary)' }}>File d'attente</h3>
-              <button onClick={() => setShowQueue(false)} className="p-2 rounded-full hover:bg-black/5">
+              <button onClick={() => setShowQueue(false)} className="p-2 rounded-full hover:bg-[var(--hover)]">
                 <X size={22} style={{ color: 'var(--text-secondary)' }} />
               </button>
             </div>
@@ -448,13 +448,13 @@ export function NowPlayingView({
                 <div
                   key={t.id + i}
                   onClick={() => playTrack(t, activeQueue)}
-                  className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors"
-                  style={{ background: t.id === track.id ? 'rgba(255,64,103,0.08)' : 'transparent' }}
+                  className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors hover:bg-[var(--hover)]"
+                  style={{ background: t.id === track.id ? 'var(--bg-app)' : 'transparent' }}
                 >
                   <img src={t.coverUrl} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" alt="" />
                   <div className="flex-1 min-w-0">
                     <p
-                      className="text-sm font-semibold truncate"
+                      className="text-sm font-bold"
                       style={{ color: t.id === track.id ? 'var(--accent)' : 'var(--text-primary)' }}
                     >{t.title}</p>
                     <p className="text-xs truncate" style={{ color: 'var(--text-faint)' }}>{t.artist}</p>

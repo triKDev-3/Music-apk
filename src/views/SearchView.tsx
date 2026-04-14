@@ -53,7 +53,7 @@ export function SearchView({
           animate={{ opacity: 1, scale: 1 }}
           className="flex flex-col items-center justify-center py-24 text-center"
         >
-          <div className="w-20 h-20 rounded-full bg-white shadow-sm border border-black/5 flex items-center justify-center mb-6">
+          <div className="w-20 h-20 rounded-full bg-[var(--bg-card)] shadow-sm border border-[var(--border)] flex items-center justify-center mb-6">
             <Search size={32} style={{ color: 'var(--text-faint)' }} />
           </div>
           <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>Découvrir de nouveaux sons</h3>

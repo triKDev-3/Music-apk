@@ -22,8 +22,8 @@ function SidebarItem({ icon, label, active = false, onClick, className }: Sideba
       className={clsx(
         "w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300 group relative overflow-hidden",
         active 
-          ? "bg-white text-[var(--text-primary)] shadow-[0_8px_20px_rgba(0,0,0,0.06)]" 
-          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/50",
+          ? "bg-[var(--bg-card)] text-[var(--text-primary)] shadow-[0_8px_20px_rgba(0,0,0,0.2)]" 
+          : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]",
         className
       )}
     >
@@ -126,7 +126,7 @@ export function Sidebar({
 
           <div className="space-y-1">
             <SidebarItem
-              icon={<div className="bg-white p-1.5 rounded-lg border border-[var(--border)]"><Plus size={16} className="text-[var(--text-primary)]" /></div>}
+              icon={<div className="bg-[var(--bg-card)] p-1.5 rounded-lg border border-[var(--border)]"><Plus size={16} className="text-[var(--text-primary)]" /></div>}
               label="Créer une playlist"
               onClick={createPlaylist}
             />
@@ -155,7 +155,7 @@ export function Sidebar({
                     "w-full text-left px-4 py-2.5 text-sm font-bold truncate transition-all duration-300 rounded-xl",
                     currentView === 'playlist' && playlists.find(pl => pl.id === p.id)?.id === p.id
                       ? "text-[var(--accent)] bg-[var(--accent)]/5"
-                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/50 hover:translate-x-1"
+                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] hover:translate-x-1"
                   )}
                 >
                   {p.name}
@@ -166,7 +166,7 @@ export function Sidebar({
 
         {/* Footer info */}
         <div className="p-6 border-t border-[var(--border)]">
-          <div className="bg-white p-4 rounded-2xl border border-[var(--border)] shadow-sm">
+          <div className="bg-[var(--bg-card)] p-4 rounded-2xl border border-[var(--border)] shadow-sm">
             <p className="text-[10px] font-black text-[var(--accent)] uppercase tracking-widest mb-1">Version Premium</p>
             <p className="text-xs text-[var(--text-secondary)] leading-relaxed">Profitez de l'expérience complète sans publicité.</p>
           </div>
