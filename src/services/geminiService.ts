@@ -31,7 +31,11 @@ const REAL_TRACKS_BY_MOOD: Record<string, Track[]> = {
   ],
 };
 
-/** Recherche des musiques par requête texte (fallback vers Gemini via API backend) */
+/** 
+ * Recherche des musiques par requête texte (fallback vers Gemini via API backend) 
+ * @param query La requête de recherche utilisateur.
+ * @returns Une liste de pistes musicales.
+ */
 export async function searchMusic(query: string): Promise<Track[]> {
   try {
     const controller = new AbortController();
@@ -66,7 +70,11 @@ export async function searchMusic(query: string): Promise<Track[]> {
   }
 }
 
-/** Récupère des playlists par ambiance via Gemini + enrichit avec des tracks réels */
+/** 
+ * Récupère des playlists par ambiance via Gemini + enrichit avec des tracks réels 
+ * @param mood L'ambiance souhaitée.
+ * @returns Une liste de pistes musicales.
+ */
 export async function getMoodPlaylists(mood: string): Promise<Track[]> {
   const realTracks = REAL_TRACKS_BY_MOOD[mood] || [];
   
@@ -108,7 +116,12 @@ export async function getMoodPlaylists(mood: string): Promise<Track[]> {
   return realTracks;
 }
 
-/** Récupère les paroles d'une chanson via Gemini avec Search Grounding via l'API locale */
+/** 
+ * Récupère les paroles d'une chanson via Gemini avec Search Grounding via l'API locale 
+ * @param title Titre de la chanson.
+ * @param artist Artiste de la chanson.
+ * @returns Les paroles ou un message d'erreur.
+ */
 export async function getLyrics(title: string, artist: string): Promise<string> {
   try {
     const res = await fetch((import.meta.env.VITE_API_URL || "") + "/api/lyrics", {
@@ -129,8 +142,10 @@ export async function getLyrics(title: string, artist: string): Promise<string> 
 }
 
 /** 
- * L'API de génération complète via lyria n'est plus gérée sur le client.
- * Celles-ci ne seront pas disponibles nativement sans un proxy complet.
+ * Generates music metadata and a mock audio URL based on a prompt.
+ * @param prompt The user's creative description.
+ * @param isFullLength Whether to generate a full length track.
+ * @returns Object with audio URL and optional lyrics.
  */
 export async function generateMusic(prompt: string, isFullLength: boolean = false): Promise<{ url: string, lyrics?: string }> {
   console.warn("generateMusic is unsupported on the client. It requires a backend implementation with an AI proxy.");
@@ -138,7 +153,10 @@ export async function generateMusic(prompt: string, isFullLength: boolean = fals
 }
 
 /**
- * Analyse une image pour suggérer de la musique (Multimodal) (Désactivé sur client pour éviter plantages process.env)
+ * Suggests music tracks based on image analysis.
+ * @param base64Image Image data in base64.
+ * @param mimeType Image format.
+ * @returns Array of suggested tracks.
  */
 export async function suggestMusicFromImage(base64Image: string, mimeType: string): Promise<Track[]> {
   console.warn("suggestMusicFromImage is unsupported on the client.");

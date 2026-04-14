@@ -35,272 +35,201 @@ export function PlaylistView({
     .sort((a, b) => {
       if (sortBy === 'title') return a.title.localeCompare(b.title);
       if (sortBy === 'artist') return a.artist.localeCompare(b.artist);
-      return 0; // 'date' par défaut (ordre d'insertion)
+      return 0;
     });
 
   return (
-    <div className="flex flex-col gap-8 pb-10">
-      {/* Header Premium */}
-      <div className="relative pt-12 pb-8 group">
-        {/* Background Glow Effect */}
-        <div className="absolute top-0 left-0 w-full h-[120%] bg-gradient-to-b from-violet-600/20 via-transparent to-transparent -z-10 blur-3xl opacity-50 group-hover:opacity-80 transition-opacity" />
-        
-        <div className="flex flex-col md:flex-row items-center md:items-end gap-8">
+    <div className="flex flex-col gap-8 pb-10 px-4">
+      {/* Header */}
+      <div className="relative pt-12 pb-6">
+        <div className="flex flex-col items-center text-center gap-6">
           <motion.div 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="relative w-56 h-56 md:w-72 md:h-72 flex-shrink-0"
+            className="w-48 h-48 md:w-64 md:h-64 rounded-[40px] shadow-xl overflow-hidden bg-white border border-black/5"
           >
-            <div className="w-full h-full bg-gradient-to-br from-violet-900/40 to-black rounded-[2rem] shadow-[0_20px_60px_rgba(0,0,0,0.6)] flex items-center justify-center border border-white/10 overflow-hidden relative group/cover">
-              {playlist.tracks[0] ? (
-                <img 
-                  src={playlist.tracks[0].coverUrl} 
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover/cover:scale-110" 
-                  alt="" 
-                />
-              ) : (
-                <Music size={100} className="text-violet-500/20" />
-              )}
-              {/* Overlay on hover */}
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center">
-                 <button className="w-20 h-20 rounded-full bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center hover:scale-110 transition-transform">
-                    <Play size={40} fill="white" className="ml-2" />
-                 </button>
+            {playlist.tracks[0] ? (
+              <img 
+                src={playlist.tracks[0].coverUrl} 
+                className="w-full h-full object-cover" 
+                alt="" 
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                <Music size={80} style={{ color: 'var(--text-faint)' }} />
               </div>
-            </div>
-            {/* Glow projection */}
-            <div className="absolute -inset-4 bg-violet-600/30 rounded-[3rem] blur-2xl -z-10 opacity-0 group-hover:opacity-100 transition-opacity" />
+            )}
           </motion.div>
 
-          <div className="flex-1 text-center md:text-left">
-            <motion.div
-               initial={{ x: -20, opacity: 0 }}
-               animate={{ x: 0, opacity: 1 }}
-               transition={{ delay: 0.2 }}
-            >
-              <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-400 mb-3 drop-shadow-md">PLAYLIST PRIVÉE</p>
-              <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-violet-500/50 leading-tight">
+          <div className="space-y-4 max-w-lg">
+            <div className="space-y-1">
+              <h1 className="text-4xl md:text-5xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>
                 {playlist.name}
               </h1>
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-white/50 font-bold text-sm md:text-base">
-                 <div className="px-3 py-1 rounded-full bg-white/5 border border-white/10">{playlist.tracks.length} morceaux</div>
-                 <div className="text-violet-500/60">•</div>
-                 <div className="opacity-80 italic font-medium">{playlist.description || "Aucune description"}</div>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </div>
-
-      {/* Actions Bar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-6 bg-white/5 backdrop-blur-xl border border-white/5 p-4 rounded-3xl sticky top-0 z-40 shadow-2xl">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => filteredTracks[0] && playTrack(filteredTracks[0], filteredTracks)}
-            className="px-8 h-14 rounded-full bg-violet-600 text-white font-black hover:scale-105 active:scale-95 transition-all shadow-[0_0_30px_rgba(143,0,255,0.4)] flex items-center gap-3"
-          >
-            <Play size={24} fill="white" />
-            <span>ÉCOUTER TOUT</span>
-          </button>
-          
-          <div className="relative">
-            <button 
-              onClick={() => setShowMenu(!showMenu)}
-              className={`p-4 rounded-full transition-all ${showMenu ? 'bg-violet-600 text-white' : 'bg-white/5 border border-white/10 text-white/60 hover:text-white'}`}
-            >
-               <MoreHorizontal size={24} />
-            </button>
-
-            <AnimatePresence>
-              {showMenu && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                  className="absolute top-full left-0 mt-2 w-56 bg-zinc-900/95 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl p-2 z-[100]"
-                >
-                  <button 
-                    onClick={() => {
-                      const n = prompt('Nouveau nom :', playlist.name);
-                      if (n) onRenamePlaylist?.(playlist.id, n);
-                      setShowMenu(false);
-                    }}
-                    className="flex items-center gap-3 w-full px-4 py-3 rounded-xl hover:bg-white/10 text-sm font-bold text-left transition-colors"
-                  >
-                    <Edit2 size={18} /> Renommer
-                  </button>
-                  <button 
-                    onClick={() => {
-                      if (confirm('Supprimer cette playlist ?')) onDeletePlaylist?.(playlist.id);
-                      setShowMenu(false);
-                    }}
-                    className="flex items-center gap-3 w-full px-4 py-3 rounded-xl hover:bg-red-500/20 text-red-400 text-sm font-bold text-left transition-colors"
-                  >
-                    <Trash2 size={18} /> Supprimer
-                  </button>
-                  <hr className="border-white/5 my-1" />
-                  <p className="text-[10px] font-black text-white/30 uppercase px-4 py-2">Trier par</p>
-                  <button 
-                    onClick={() => { onSortChange('title'); setShowMenu(false); }}
-                    className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl hover:bg-white/10 text-sm font-bold text-left transition-colors ${sortBy === 'title' ? 'text-violet-400' : 'text-white/60'}`}
-                  >
-                    Nom du titre
-                  </button>
-                  <button 
-                    onClick={() => { onSortChange('artist'); setShowMenu(false); }}
-                    className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl hover:bg-white/10 text-sm font-bold text-left transition-colors ${sortBy === 'artist' ? 'text-violet-400' : 'text-white/60'}`}
-                  >
-                    Artiste
-                  </button>
-                  <button 
-                    onClick={() => { onSortChange('date'); setShowMenu(false); }}
-                    className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl hover:bg-white/10 text-sm font-bold text-left transition-colors ${sortBy === 'date' ? 'text-violet-400' : 'text-white/60'}`}
-                  >
-                    Date d'ajout
-                  </button>
-                  <hr className="border-white/5 my-1" />
-                  <button 
-                    onClick={() => {
-                      console.log('Lien de partage copié (simulation)');
-                      setShowMenu(false);
-                    }}
-                    className="flex items-center gap-3 w-full px-4 py-3 rounded-xl hover:bg-white/10 text-sm font-bold text-left transition-colors"
-                  >
-                    <Share2 size={18} /> Partager
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-
-        {/* Small Playlist Search Bar refinement */}
-        <div className="relative group w-full sm:max-w-xs">
-          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-white/20 group-focus-within:text-violet-500 transition-colors">
-            <Search size={18} />
-          </div>
-          <input 
-            type="text"
-            placeholder="Rechercher dans la playlist..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-black/40 border border-white/5 rounded-full py-3 pl-12 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40 focus:bg-black/60 transition-all font-bold placeholder:text-white/20 text-white"
-          />
-          {searchQuery && (
-            <button 
-              onClick={() => setSearchQuery('')}
-              className="absolute inset-y-0 right-4 flex items-center text-white/30 hover:text-white"
-            >
-              <X size={16} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Tracks List */}
-      <div className="flex flex-col">
-        <div className="grid grid-cols-[auto_1fr_auto] gap-4 px-6 py-4 border-b border-white/5 text-white/20 text-[10px] font-black uppercase tracking-[0.2em]">
-          <span className="w-10 text-center">#</span>
-          <span>TITRE & ARTISTE</span>
-          <Clock size={14} />
-        </div>
-
-        <div className="mt-4 min-h-[200px] space-y-1">
-          {filteredTracks.length > 0 ? (
-            filteredTracks.map((track, i) => (
-              <motion.div
-                key={track.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.03 }}
-                onClick={() => playTrack(track, filteredTracks)}
-                className={`grid grid-cols-[auto_1fr_auto] gap-4 px-6 py-3 rounded-2xl cursor-pointer transition-all group items-center ${currentTrackId === track.id ? 'bg-violet-600/20 border border-violet-500/20' : 'hover:bg-white/5 border border-transparent'}`}
-              >
-                <div className="w-10 flex items-center justify-center">
-                  {currentTrackId === track.id ? (
-                     <div className="flex items-end gap-0.5 h-4">
-                        <motion.div animate={{ height: [6, 16, 6] }} transition={{ repeat: Infinity, duration: 0.5 }} className="w-1 bg-violet-500 rounded-full" />
-                        <motion.div animate={{ height: [12, 6, 12] }} transition={{ repeat: Infinity, duration: 0.6 }} className="w-1 bg-violet-500 rounded-full" />
-                        <motion.div animate={{ height: [8, 14, 8] }} transition={{ repeat: Infinity, duration: 0.7 }} className="w-1 bg-violet-500 rounded-full" />
-                     </div>
-                  ) : (
-                    <span className="text-white/20 group-hover:hidden font-mono text-sm">{String(i + 1).padStart(2, '0')}</span>
-                  )}
-                  <Play size={16} fill="currentColor" className="text-violet-500 hidden group-hover:block" />
-                </div>
-
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className="relative flex-shrink-0">
-                    <img src={track.coverUrl} className="w-12 h-12 rounded-xl object-cover shadow-lg" alt="" />
-                    {currentTrackId === track.id && (
-                       <div className="absolute inset-0 bg-violet-500/20 rounded-xl flex items-center justify-center">
-                          <Music size={14} className="text-white animate-pulse" />
-                       </div>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className={`font-black truncate text-sm md:text-base ${currentTrackId === track.id ? 'text-violet-400' : 'text-white'}`}>{track.title}</p>
-                    <p className="text-xs text-white/40 font-bold truncate tracking-tight">{track.artist}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-6">
-                   <div className="hidden md:block">
-                      <span className="px-2 py-1 rounded-md bg-white/5 text-[9px] font-black text-white/30 border border-white/5 uppercase opacity-0 group-hover:opacity-100 transition-opacity">
-                         {track.id.startsWith('local-') ? 'Local' : 'Youtube'}
-                      </span>
-                   </div>
-                   <span className="text-xs text-white/30 font-mono font-bold w-12 text-right">
-                     {track.duration > 0 ? formatTime(track.duration) : track.id.startsWith('local-') ? '...' : <span className="text-red-500">LIVE</span>}
-                   </span>
-                   
-                   <div className="relative">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveTrackMenu(activeTrackMenu === track.id ? null : track.id);
-                        }}
-                        className="p-2 text-white/20 hover:text-white transition-colors"
-                      >
-                        <MoreHorizontal size={20} />
-                      </button>
-
-                      <AnimatePresence>
-                        {activeTrackMenu === track.id && (
-                          <motion.div
-                            initial={{ opacity: 0, scale: 0.9, x: -20 }}
-                            animate={{ opacity: 1, scale: 1, x: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, x: -20 }}
-                            className="absolute bottom-full right-0 mb-2 w-48 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl p-1 z-[110]"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button 
-                              onClick={() => {
-                                onRemoveTrack?.(playlist.id, track.id);
-                                setActiveTrackMenu(null);
-                              }}
-                              className="flex items-center gap-2 w-full px-3 py-2 rounded-lg hover:bg-red-500/10 text-red-400 text-xs font-bold transition-colors"
-                            >
-                              <Trash2 size={14} /> Retirer de la playlist
-                            </button>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                   </div>
-                </div>
-              </motion.div>
-            ))
-          ) : (
-            <div className="flex flex-col items-center justify-center py-20 text-white/20">
-               <div className="p-8 rounded-full bg-white/5 mb-6">
-                  <Search size={64} className="opacity-20" />
-               </div>
-               <p className="text-xl font-black">Aucun résultat trouvé</p>
-               <p className="text-sm opacity-50 mb-6 font-bold uppercase tracking-widest mt-2 px-10 text-center">Nous n'avons trouvé aucun titre correspondant à votre recherche dans cette playlist.</p>
-               <button onClick={() => setSearchQuery('')} className="px-8 py-3 bg-white/10 hover:bg-white text-black hover:text-black transition-all text-sm font-black rounded-full text-white">REINTIALISER LA RECHERCHE</button>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                {playlist.tracks.length} titres • {playlist.description || "Ma collection"}
+              </p>
             </div>
-          )}
+
+            <div className="flex items-center justify-center gap-3">
+              <button 
+                onClick={() => filteredTracks[0] && playTrack(filteredTracks[0], filteredTracks)}
+                className="btn-accent px-10 py-4 h-14 rounded-full font-black flex items-center gap-3"
+              >
+                <Play size={20} fill="white" />
+                <span>Play All</span>
+              </button>
+              
+              <div className="relative">
+                <button 
+                  onClick={() => setShowMenu(!showMenu)}
+                  className="w-14 h-14 rounded-full flex items-center justify-center bg-white border border-black/5 shadow-sm text-[var(--text-secondary)] hover:bg-gray-50 transition-all"
+                >
+                   <MoreHorizontal size={24} />
+                </button>
+
+                <AnimatePresence>
+                  {showMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                      className="absolute top-16 left-1/2 -translate-x-1/2 w-56 bg-white border border-black/5 rounded-2xl shadow-2xl p-2 z-[100]"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <button 
+                        onClick={() => {
+                          const n = prompt('Nouveau nom :', playlist.name);
+                          if (n) onRenamePlaylist?.(playlist.id, n);
+                          setShowMenu(false);
+                        }}
+                        className="flex items-center gap-3 w-full px-4 py-3 rounded-xl hover:bg-black/5 text-sm font-semibold text-left transition-colors"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
+                        <Edit2 size={18} /> Renommer
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (confirm('Supprimer cette playlist ?')) onDeletePlaylist?.(playlist.id);
+                          setShowMenu(false);
+                        }}
+                        className="flex items-center gap-3 w-full px-4 py-3 rounded-xl hover:bg-red-50 text-red-500 text-sm font-semibold text-left transition-colors"
+                      >
+                        <Trash2 size={18} /> Supprimer
+                      </button>
+                      <hr className="my-1 border-black/5" />
+                      <p className="px-4 py-2 text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>Trier</p>
+                      {['title', 'artist', 'date'].map((s: any) => (
+                        <button 
+                          key={s}
+                          onClick={() => { onSortChange(s); setShowMenu(false); }}
+                          className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl hover:bg-black/5 text-sm font-semibold text-left transition-colors ${sortBy === s ? 'text-[var(--accent)]' : 'text-[var(--text-secondary)]'}`}
+                        >
+                          {s.charAt(0).toUpperCase() + s.slice(1)}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
+
+      {/* Search within playlist */}
+      <div className="relative group max-w-sm mx-auto w-full">
+        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-faint)' }} />
+        <input 
+          type="text"
+          placeholder="Rechercher..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full bg-white border border-black/5 rounded-full py-3 pl-12 pr-12 text-sm outline-none focus:border-[var(--accent)] shadow-sm transition-all"
+          style={{ color: 'var(--text-primary)' }}
+        />
+        {searchQuery && (
+          <button onClick={() => setSearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-faint)] hover:text-[var(--text-primary)]">
+            <X size={16} />
+          </button>
+        )}
+      </div>
+
+      {/* Track list */}
+      <div className="space-y-2 mt-4">
+        {filteredTracks.map((track, i) => (
+          <motion.div
+            key={track.id}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.02 }}
+            onClick={() => playTrack(track, filteredTracks)}
+            className={`flex items-center gap-4 p-2 rounded-2xl cursor-pointer transition-all border ${currentTrackId === track.id ? 'bg-white border-[var(--accent)] shadow-sm' : 'bg-transparent border-transparent hover:bg-white hover:border-black/5 hover:shadow-sm'}`}
+          >
+            <div className="relative flex-shrink-0 w-12 h-12 rounded-xl overflow-hidden shadow-sm">
+              <img src={track.coverUrl} className="w-full h-full object-cover" alt="" />
+              <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity">
+                <Play size={16} fill="white" color="white" />
+              </div>
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-bold truncate ${currentTrackId === track.id ? 'text-[var(--accent)]' : 'text-[var(--text-primary)]'}`}>
+                {track.title}
+              </p>
+              <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-secondary)' }}>
+                {track.artist}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-4 pr-2">
+              <span className="text-[10px] font-mono font-bold hidden sm:block" style={{ color: 'var(--text-faint)' }}>
+                {track.duration > 0 ? formatTime(track.duration) : track.id.startsWith('local-') ? '...' : 'LIVE'}
+              </span>
+              
+              <div className="relative">
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveTrackMenu(activeTrackMenu === track.id ? null : track.id);
+                  }}
+                  className="p-2 text-black/10 hover:text-[var(--text-secondary)] transition-colors"
+                >
+                  <MoreHorizontal size={20} />
+                </button>
+
+                <AnimatePresence>
+                  {activeTrackMenu === track.id && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9, x: -10 }}
+                      animate={{ opacity: 1, scale: 1, x: 0 }}
+                      exit={{ opacity: 0, scale: 0.9, x: -10 }}
+                      className="absolute bottom-full right-0 mb-2 w-48 bg-white border border-black/5 rounded-2xl shadow-2xl p-2 z-[110]"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <button 
+                        onClick={() => {
+                          onRemoveTrack?.(playlist.id, track.id);
+                          setActiveTrackMenu(null);
+                        }}
+                        className="flex items-center gap-2 w-full px-4 py-2 hover:bg-red-50 text-red-500 text-xs font-bold rounded-xl transition-colors"
+                      >
+                        <Trash2 size={16} /> Retirer
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+
+        {filteredTracks.length === 0 && (
+          <div className="py-20 text-center">
+            <Music size={48} className="mx-auto mb-4" style={{ color: 'var(--text-faint)' }} />
+            <p className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Playlist vide</p>
+          </div>
+        )}
       </div>
     </div>
   );

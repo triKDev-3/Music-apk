@@ -1,9 +1,7 @@
 import React from 'react';
-import {
-  Play, Pause, SkipBack, SkipForward, Repeat, Repeat1, Shuffle,
-  Heart, Video, ListMusic, Volume2, Maximize2, Loader2, Music
-} from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Music, Loader2 } from 'lucide-react';
 import { Track } from '../types';
+import { motion } from 'framer-motion';
 
 interface PlayerBarProps {
   currentTrack: Track | null;
@@ -24,210 +22,118 @@ interface PlayerBarProps {
   isLoading?: boolean;
 }
 
-const Btn = ({ active, onClick, children }: { active?: boolean; onClick?: () => void; children: React.ReactNode }) => (
-  <button
-    onClick={onClick}
-    className="transition-colors"
-    style={{ color: active ? '#8F00FF' : 'var(--text-faint)' }}
-    onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'; }}
-    onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.color = 'var(--text-faint)'; }}
-  >
-    {children}
-  </button>
-);
-
+/**
+ * persistent playback controls (PlayerBar).
+ * Displays current track info and provides playback actions.
+ */
 export function PlayerBar({
   currentTrack, isPlaying, setIsPlaying,
-  isMuted, setIsMuted, volume, setVolume,
   played, duration,
-  repeatMode, setRepeatMode, isShuffle, setIsShuffle,
-  isClipMode, setIsClipMode,
-  favorites, toggleFavorite,
   handleSeekChange, formatTime, skipToNext, skipToPrev,
   onOpenNowPlaying, isLoading,
 }: PlayerBarProps) {
-  const isFav = currentTrack ? favorites.includes(currentTrack.id) : false;
+  const progress = duration > 0 ? played : 0;
 
   return (
     <footer
-      className="h-20 sm:h-24 px-4 flex items-center justify-between z-30 shrink-0 w-full relative bg-black border-t border-white/5 backdrop-blur-xl"
+      className="relative flex-shrink-0"
+      style={{
+        background: 'var(--bg-player)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        boxShadow: 'var(--shadow-player)',
+        borderTop: '1px solid rgba(0,0,0,0.06)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}
     >
-      {/* Mobile Progress Bar (Top edge) */}
-      <div className="absolute top-0 left-0 w-full h-[1px] sm:hidden bg-zinc-800">
-        <div 
-          className="h-full bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.5)]" 
-          style={{ width: `${duration > 0 ? (played / duration) * 100 : 0}%` }} 
+      {/* Thin progress line at top */}
+      <div className="absolute top-0 left-0 w-full h-[2px] bg-black/5">
+        <div
+          className="h-full transition-all duration-300"
+          style={{ width: `${progress * 100}%`, background: 'var(--accent)' }}
         />
       </div>
 
-      {/* Track info */}
-      <div 
-        className="flex items-center gap-4 sm:w-1/3 sm:min-w-[240px] flex-1 cursor-pointer group/bar overflow-hidden"
+      <div
+        className="flex items-center px-4 cursor-pointer"
+        style={{ height: 80 }}
         onClick={onOpenNowPlaying}
       >
-        {currentTrack ? (
-          <>
-            <div className="relative flex-shrink-0 w-12 h-12 sm:w-16 sm:h-16 shadow-2xl">
-              <img src={currentTrack.coverUrl} alt={currentTrack.title} className="w-full h-full object-cover rounded-lg" />
-              {isLoading && (
-                <div className="absolute inset-0 bg-black/60 rounded-lg flex items-center justify-center backdrop-blur-[2px]">
-                  <Loader2 size={20} className="text-violet-500 animate-spin" />
-                </div>
-              )}
-
-            </div>
-            
-            <div className="min-w-0 flex flex-col justify-center overflow-hidden flex-1">
-              <div className="flex items-center gap-2">
-                <p className="font-bold text-sm sm:text-base text-white truncate group-hover/bar:text-violet-400 transition-colors">
-                  {currentTrack.title}
-                </p>
-                {isPlaying && (
-                  <div className="flex gap-0.5 items-end h-3 mb-1">
-                    <div className="w-0.5 h-full bg-violet-500 animate-[bar-grow_0.8s_infinite]" />
-                    <div className="w-0.5 h-2/3 bg-violet-500 animate-[bar-grow_1.2s_infinite]" />
-                    <div className="w-0.5 h-1/2 bg-violet-500 animate-[bar-grow_1s_infinite]" />
-                  </div>
-                )}
+        {/* Vinyl / Album Art */}
+        <div className="relative flex-shrink-0 mr-3" style={{ width: 52, height: 52 }}>
+          <motion.div
+            animate={{ rotate: isPlaying ? 360 : 0 }}
+            transition={{ duration: 8, repeat: Infinity, ease: 'linear', paused: !isPlaying }}
+            className="w-full h-full rounded-full overflow-hidden border-4 border-white shadow-lg"
+            style={{
+              animationPlayState: isPlaying ? 'running' : 'paused',
+            }}
+          >
+            {currentTrack?.coverUrl ? (
+              <img src={currentTrack.coverUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center" style={{ background: '#F0F0F0' }}>
+                <Music size={20} style={{ color: 'var(--text-faint)' }} />
               </div>
-              <p className="text-xs text-zinc-400 truncate font-medium">
+            )}
+          </motion.div>
+          {/* Center dot */}
+          <div
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            style={{ zIndex: 10 }}
+          >
+            <div className="w-3 h-3 rounded-full bg-white border-2 shadow-sm" style={{ borderColor: 'rgba(0,0,0,0.1)' }} />
+          </div>
+        </div>
+
+        {/* Track info */}
+        <div className="flex-1 min-w-0">
+          {currentTrack ? (
+            <>
+              <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>
+                {currentTrack.title}
+              </p>
+              <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
                 {currentTrack.artist}
               </p>
-            </div>
+            </>
+          ) : (
+            <p className="text-sm" style={{ color: 'var(--text-faint)' }}>Aucune piste sélectionnée</p>
+          )}
+        </div>
 
-            <button
-              onClick={(e) => { e.stopPropagation(); toggleFavorite(currentTrack.id); }}
-              className={`ml-2 transition-all hover:scale-110 flex-shrink-0 hidden sm:block ${isFav ? 'text-violet-500' : 'text-zinc-500 hover:text-zinc-300'}`}
-            >
-              <Heart size={20} fill={isFav ? 'currentColor' : 'none'} className={isFav ? 'drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]' : ''} />
-            </button>
-          </>
-        ) : (
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg bg-zinc-900 flex items-center justify-center border border-white/5">
-               <Music size={24} className="text-zinc-700" />
-            </div>
-            <div className="space-y-2 hidden sm:block">
-              <div className="w-32 h-4 bg-zinc-900 rounded animate-pulse" />
-              <div className="w-20 h-3 bg-zinc-900 rounded animate-pulse" />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Controls - Desktop */}
-      <div className="hidden sm:flex flex-col items-center gap-3 w-1/3 max-w-xl px-4">
-        <div className="flex items-center gap-6">
-          <button 
-            onClick={() => setIsShuffle(!isShuffle)}
-            className={`transition-colors ${isShuffle ? 'text-violet-500' : 'text-zinc-500 hover:text-white'}`}
+        {/* Controls */}
+        <div className="flex items-center gap-3 ml-3 flex-shrink-0" onClick={e => e.stopPropagation()}>
+          <button
+            onClick={skipToPrev}
+            className="transition-opacity hover:opacity-70"
+            style={{ color: 'var(--text-secondary)' }}
           >
-            <Shuffle size={18} />
+            <SkipBack size={22} fill="currentColor" />
           </button>
-          <button onClick={skipToPrev} className="text-zinc-300 hover:text-white transition-colors">
-            <SkipBack size={24} fill="currentColor" />
-          </button>
+
           <button
             onClick={() => setIsPlaying(!isPlaying)}
-            className="w-12 h-12 bg-white text-black rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-xl shadow-white/10"
+            className="btn-accent flex-shrink-0"
+            style={{ width: 44, height: 44 }}
           >
             {isLoading ? (
-              <Loader2 size={24} className="animate-spin" />
+              <Loader2 size={20} className="animate-spin" />
             ) : isPlaying ? (
-              <Pause size={24} fill="currentColor" />
+              <Pause size={20} fill="white" color="white" />
             ) : (
-              <Play size={24} fill="currentColor" className="ml-1" />
+              <Play size={20} fill="white" color="white" className="ml-0.5" />
             )}
           </button>
-          <button onClick={skipToNext} className="text-zinc-300 hover:text-white transition-colors">
-            <SkipForward size={24} fill="currentColor" />
-          </button>
-          <button 
-            onClick={() => {
-              const next: Record<string, 'off' | 'all' | 'one'> = { off: 'all', all: 'one', one: 'off' };
-              setRepeatMode(next[repeatMode]);
-            }}
-            className={`transition-colors ${repeatMode !== 'off' ? 'text-violet-500' : 'text-zinc-500 hover:text-white'}`}
+
+          <button
+            onClick={skipToNext}
+            className="transition-opacity hover:opacity-70"
+            style={{ color: 'var(--text-secondary)' }}
           >
-            {repeatMode === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
+            <SkipForward size={22} fill="currentColor" />
           </button>
         </div>
-
-        {/* Progress bar */}
-        <div className="flex items-center gap-3 w-full group">
-          <span className="text-[10px] w-10 text-right text-zinc-500 font-medium">
-            {formatTime(played * duration)}
-          </span>
-          <div className="flex-1 h-1 bg-zinc-800 rounded-full relative cursor-pointer">
-            <input
-              type="range" min={0} max={0.999999} step="any" value={played}
-              onChange={e => handleSeekChange(parseFloat(e.target.value))}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-            />
-            <div
-              className="absolute top-0 left-0 h-full bg-white group-hover:bg-violet-500 rounded-full transition-colors"
-              style={{ width: `${played * 100}%` }}
-            />
-            <div
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-lg"
-              style={{ left: `${played * 100}%`, marginLeft: '-6px' }}
-            />
-          </div>
-          <span className="text-[10px] w-10 text-zinc-500 font-medium">
-            {formatTime(duration)}
-          </span>
-        </div>
-      </div>
-
-      {/* Controls - Mobile */}
-      <div className="flex sm:hidden items-center gap-4 pr-2">
-        <button
-          onClick={(e) => { e.stopPropagation(); toggleFavorite(currentTrack?.id || ''); }}
-          className={`transition-transform hover:scale-110 ${isFav ? 'text-violet-500' : 'text-zinc-500'}`}
-        >
-          <Heart size={24} fill={isFav ? 'currentColor' : 'none'} />
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); setIsPlaying(!isPlaying); }}
-          className="w-12 h-12 flex items-center justify-center text-white"
-        >
-          {isLoading ? (
-            <Loader2 size={28} className="animate-spin text-violet-500" />
-          ) : isPlaying ? (
-            <Pause size={32} fill="currentColor" />
-          ) : (
-            <Play size={32} fill="currentColor" />
-          )}
-        </button>
-      </div>
-
-      {/* Volume & extras - Desktop */}
-      <div className="hidden sm:flex items-center justify-end gap-6 sm:w-1/3 min-w-[200px]">
-        <div className="flex items-center gap-4">
-
-          <button className="text-zinc-500 hover:text-white transition-colors">
-            <ListMusic size={20} />
-          </button>
-        </div>
-        <div className="flex items-center gap-3 group w-32">
-          <button onClick={() => setIsMuted(!isMuted)} className="text-zinc-500 hover:text-white transition-colors">
-            <Volume2 size={20} />
-          </button>
-          <div className="flex-1 h-1 bg-zinc-800 rounded-full relative cursor-pointer">
-            <div
-              className="absolute top-0 left-0 h-full bg-zinc-400 group-hover:bg-violet-500 rounded-full transition-colors"
-              style={{ width: `${volume * 100}%` }}
-            />
-            <input
-              type="range" min={0} max={1} step="any" value={volume}
-              onChange={e => setVolume(parseFloat(e.target.value))}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            />
-          </div>
-        </div>
-        <button onClick={onOpenNowPlaying} className="text-zinc-500 hover:text-white transition-colors">
-          <Maximize2 size={20} />
-        </button>
       </div>
     </footer>
   );

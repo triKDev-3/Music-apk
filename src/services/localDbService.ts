@@ -6,6 +6,10 @@ export interface LocalTrack extends Track {
   fileName: string;
 }
 
+/**
+ * Local IndexedDB database for storing imported tracks.
+ * Uses Dexie for a clean Promise-based API.
+ */
 export class PlayMeDatabase extends Dexie {
   tracks!: Table<LocalTrack>;
 

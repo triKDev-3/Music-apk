@@ -5,13 +5,17 @@ const BASE = 'https://www.googleapis.com/youtube/v3';
 // Token OAuth de l'utilisateur connecté (mis à jour après connexion Google)
 let _oauthToken: string | null = localStorage.getItem('playme_youtube_token');
 
-/** Appelé après une connexion Google réussie pour stocker le token */
+/**
+ * Stores the YouTube OAuth token for the current session.
+ * @param token The OAuth 2.0 access token or null to clear.
+ */
 export function setYouTubeOAuthToken(token: string | null) {
   _oauthToken = token;
   if (token) {
     console.log('[YouTube] OAuth token set. API calls will use user credentials.');
   } else {
-    console.warn('[YouTube] No OAuth token. Will use mock results.');
+    // Falls back to API Key or Backend if token is missing
+    console.warn('[YouTube] No OAuth token. Using fallback methods.');
   }
 }
 
@@ -64,11 +68,14 @@ export async function searchYouTube(query: string): Promise<Track[]> {
   }
 
   try {
-    const params = `part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=50`;
+    // Sanitize query: Remove metadata prefixes like "Fichier local "
+    const sanitizedQuery = query.replace(/^Fichier local\s+/i, '').trim();
+    
+    const params = `part=snippet&q=${encodeURIComponent(sanitizedQuery)}&type=video&maxResults=50`;
     const searchUrl = getApiUrl('search', params);
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased to 15s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     const res = await fetch(searchUrl, { 
       headers: getHeaders(),
@@ -76,10 +83,11 @@ export async function searchYouTube(query: string): Promise<Track[]> {
     });
     clearTimeout(timeoutId);
 
-    if (res.status === 403) {
-      console.warn('[YouTube] Quota API dépassé (403). Activation du mode Backend.');
-      _isQuotaExceeded = true;
-      return fetchFromBackend(query);
+    // SYSTEMATIC FALLBACK: Status 401 (Unauthorized), 403 (Quota), or 400 (Bad Request)
+    if (res.status === 401 || res.status === 403 || res.status === 400) {
+      console.warn(`[YouTube] API returned ${res.status}. Switching to Backend for query: "${sanitizedQuery}"`);
+      if (res.status === 403) _isQuotaExceeded = true;
+      return fetchFromBackend(sanitizedQuery);
     }
 
     const data = await res.json();
@@ -139,13 +147,17 @@ export async function searchYouTube(query: string): Promise<Track[]> {
   }
 }
 
-/** Assistant pour appeler le backend de secours */
+/**
+ * Fallback to secondary backend API if the primary YouTube API fails.
+ * @param query The search query.
+ * @returns Array of tracks from the backend proxy.
+ */
 async function fetchFromBackend(query: string): Promise<Track[]> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased to 15s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     
     try {
-        console.log(`[YouTube] Recherche via Backend API pour: "${query}"`);
+        console.log(`[YouTube] Backend fallback search for: "${query}"`);
         const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/search/youtube?q=${encodeURIComponent(query)}`, { 
           signal: controller.signal 
         });
@@ -159,11 +171,11 @@ async function fetchFromBackend(query: string): Promise<Track[]> {
                 if (results.length > 0) return results;
             }
         }
-        return []; 
+        return getMockResults(query); // Final fallback to static mock
     } catch (e) {
         clearTimeout(timeoutId);
-        console.error('[YouTube] Échec recherche backend:', e);
-        return [];
+        console.error('[YouTube] Backend search failed:', e);
+        return getMockResults(query);
     }
 }
 

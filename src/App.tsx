@@ -27,6 +27,7 @@ import { ClipPlayerView } from './components/ClipPlayerView';
 import { RecognitionModal } from './components/RecognitionModal';
 import { Dialog }         from './components/ui/Dialog';
 import { PermissionBanner } from './components/PermissionBanner';
+import { LegalLayout }    from './components/legal/LegalLayout';
 
 import { searchMusic, getMoodPlaylists } from './services/geminiService';
 import { searchYouTube, searchLiveMusic, getMyYouTubePlaylists, getYouTubePlaylistItems } from './services/youtubeService';
@@ -88,15 +89,16 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       }
 
       return (
-        <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 text-center">
-          <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
-          <h1 className="text-2xl font-bold mb-2">Oups ! Quelque chose s'est mal passé.</h1>
-          <p className="text-gray-400 mb-6 max-w-md">{errorMessage}</p>
+        <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center" style={{background:'var(--bg-base)',color:'var(--text-primary)'}}>
+          <AlertCircle className="w-16 h-16 mb-4" style={{color:'var(--accent)'}} />
+          <h1 className="text-2xl font-bold mb-2">Oups !</h1>
+          <p className="mb-6 max-w-md" style={{color:'var(--text-secondary)'}}>{errorMessage}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-white text-black rounded-full font-medium hover:bg-gray-200 transition-colors"
+            className="px-6 py-2 rounded-full font-medium"
+            style={{background:'var(--accent)',color:'white'}}
           >
-            Recharger l'application
+            Recharger
           </button>
         </div>
       );
@@ -107,7 +109,9 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 }
 
 export default function App() {
-  const [theme, setTheme]             = useState<Theme>('dark');
+  const [theme, setTheme]             = useState<Theme>(() => {
+    return (localStorage.getItem('playme_theme') as Theme) || 'light';
+  });
   const [currentView, setCurrentView] = useState<View>('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Track[]>([]);
@@ -139,10 +143,16 @@ export default function App() {
   const [sortBy, setSortBy] = useState<'title' | 'artist' | 'date'>(() => {
     return (localStorage.getItem('playme_sortby') as any) || 'date';
   });
+  const [legalAccepted, setLegalAccepted] = useState(() => {
+    return localStorage.getItem('playme_legal_accepted') === 'true';
+  });
 
   const fileInputRef   = useRef<HTMLInputElement>(null);
 
-  // ── Historique de recherche (pour les recommandations personnalisées) ─────────
+  /**
+   * Tracks search history for personalized recommendations.
+   * @param query The search query to track.
+   */
   const trackSearchHistory = (query: string) => {
     try {
       const history: string[] = JSON.parse(localStorage.getItem('playme_search_history') || '[]');
@@ -153,6 +163,10 @@ export default function App() {
     } catch {}
   };
 
+  /**
+   * Retrieves the current search history.
+   * @returns Array of previous search queries.
+   */
   const getSearchHistory = (): string[] => {
     try { return JSON.parse(localStorage.getItem('playme_search_history') || '[]'); }
     catch { return []; }
@@ -248,11 +262,19 @@ export default function App() {
     if (localTracks.length > 0) repairDurations();
   }, [localTracks.length]);
 
-  // ── Persistence playlists & theme ─────────────────────────────────────────────
+  /**
+   * Syncs playlists and track metadata to Firestore or LocalStorage.
+   * Sterilizes data by removing binary blobs before cloud sync.
+   */
   useEffect(() => {
     if (user?.uid) {
       import('./services/dbService').then(({ saveUserData }) => {
-        saveUserData(user.uid, { playlists, localTracks });
+        // STERILIZATION: Do NOT send binary blobs (fileBlob) to Firestore
+        const sterileLocalTracks = localTracks.map(t => {
+          const { fileBlob, ...metadata } = t;
+          return metadata;
+        });
+        saveUserData(user.uid, { playlists, localTracks: sterileLocalTracks });
       });
     } else {
       localStorage.setItem('playme_playlists', JSON.stringify(playlists));
@@ -264,11 +286,26 @@ export default function App() {
     localStorage.setItem('playme_sortby', sortBy);
   }, [sortBy]);
 
+  /**
+   * Applies the theme to the document and persists it in localStorage.
+   */
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('playme_theme', theme);
   }, [theme]);
 
+  /**
+   * Toggles between dark and light themes.
+   */
   const toggleTheme = () => setTheme(t => (t === 'dark' ? 'light' : 'dark'));
+
+  /**
+   * Handles the acceptance of legal terms.
+   */
+  const handleAcceptLegal = () => {
+    localStorage.setItem('playme_legal_accepted', 'true');
+    setLegalAccepted(true);
+  };
 
   // ── Restaurer le token OAuth YouTube au rechargement ─────────────────────
   useEffect(() => {
@@ -559,56 +596,50 @@ export default function App() {
   // ── Rendu ─────────────────────────────────────────────────────────────────
   return (
     <ErrorBoundary>
-      <div className="relative flex h-[100dvh] w-screen overflow-hidden font-sans bg-[var(--bg-base)] text-[var(--text-primary)]">
-
+        <AnimatePresence>
+          {!legalAccepted && (
+            <LegalLayout onAccept={handleAcceptLegal} />
+          )}
+        </AnimatePresence>
+        
+        {/* Main App Background / Container */}
+        <div 
+          className="flex h-screen overflow-hidden select-none"
+          style={{ background: 'var(--bg-base)', color: 'var(--text-primary)', fontFamily: 'Inter, sans-serif' }}
+        >
         {/* ── Nouveau Loader Premium (Remplace le Splash Screen bloquant) ── */}
         <AnimatePresence>
           {!hasStarted && (
             <motion.div
               initial={{ opacity: 1 }}
-              exit={{ opacity: 0, scale: 1.1, filter: 'blur(20px)' }}
-              transition={{ duration: 0.8, ease: "easeInOut" }}
-              className="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-black"
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.5 }}
+              className="absolute inset-0 z-[100] flex flex-col items-center justify-center"
+              style={{ background: 'var(--bg-base)' }}
             >
-              <div className="relative flex flex-col items-center">
-                {/* Logo avec halo pulsant */}
-                <motion.div 
-                  animate={{ 
-                    scale: [1, 1.05, 1],
-                    opacity: [0.8, 1, 0.8] 
-                  }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                  className="relative z-10"
-                >
-                  <h1 className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-violet-400 via-emerald-400 to-cyan-400 tracking-tighter">
-                    Play-Me
-                  </h1>
-                </motion.div>
-                
-                {/* Halo de fond */}
-                <div className="absolute inset-0 blur-[60px] bg-violet-600/20 rounded-full scale-150 animate-pulse" />
-
-                {/* Barre de chargement minimaliste */}
-                <div className="mt-12 w-48 h-1 bg-white/5 rounded-full overflow-hidden relative">
-                  <motion.div 
-                    initial={{ left: "-100%" }}
-                    animate={{ left: "100%" }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                    className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-violet-500 to-transparent"
-                  />
-                </div>
-                
-                <p className="mt-4 text-[10px] uppercase font-black tracking-[0.3em] text-white/30 animate-pulse">
-                  Initialisation
-                </p>
-              </div>
-
-              {/* Petit bouton discret au cas où l'autoplay bloque vraiment (Mobile) */}
-              <button 
-                onClick={handleStartExperience}
-                className="absolute bottom-10 text-[10px] text-white/10 hover:text-white/40 transition-colors uppercase font-bold tracking-widest"
+              <motion.div
+                animate={{ scale: [1, 1.04, 1] }}
+                transition={{ duration: 1.8, repeat: Infinity }}
               >
-                Passer le chargement
+                <h1 className="text-5xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>
+                  Play<span style={{ color: 'var(--accent)' }}>-Me</span>
+                </h1>
+              </motion.div>
+              <div className="mt-10 w-40 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.08)' }}>
+                <motion.div
+                  initial={{ x: '-100%' }}
+                  animate={{ x: '100%' }}
+                  transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                  className="h-full w-1/2 rounded-full"
+                  style={{ background: 'var(--accent)' }}
+                />
+              </div>
+              <button
+                onClick={handleStartExperience}
+                className="absolute bottom-10 text-xs"
+                style={{ color: 'var(--text-faint)' }}
+              >
+                Passer
               </button>
             </motion.div>
           )}
@@ -875,7 +906,7 @@ export default function App() {
                  }}
               />
 
-              <main className="flex-1 flex flex-col overflow-hidden relative bg-gradient-to-b from-[#121212] to-black">
+                <main className="flex-1 flex flex-col overflow-hidden relative" style={{background:'var(--bg-base)'}}>
                 {/* Background Glows */}
                 <div className="absolute top-0 left-1/4 w-96 h-96 bg-violet-600/10 rounded-full blur-[120px] pointer-events-none" />
                 <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />

@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
-import { Music, Play, Upload, Disc, User, Clock, Calendar, Heart } from 'lucide-react';
+import { Music, Play, Upload, Disc, User, Clock, Heart } from 'lucide-react';
 import { Playlist, Track } from '../types';
+import { motion } from 'framer-motion';
 
 interface LibraryViewProps {
   favorites: string[];
@@ -16,6 +17,10 @@ interface LibraryViewProps {
   onSortChange: (sort: 'title' | 'artist' | 'date') => void;
 }
 
+/**
+ * LibraryView component.
+ * Manages favorites, custom playlists, and local track imports.
+ */
 export function LibraryView({ 
   favorites, playlists, youtubePlaylists = [], stats, onImportFiles, 
   localTracks, playTrack, onPlaylistClick, formatTime,
@@ -31,28 +36,27 @@ export function LibraryView({
   const filteredLocalTracks = [...localTracks].sort((a, b) => {
     if (sortBy === 'title') return a.title.localeCompare(b.title);
     if (sortBy === 'artist') return a.artist.localeCompare(b.artist);
-    return 0; // Date par défaut
+    return 0;
   });
 
   return (
-    <div className="py-6 space-y-10">
+    <div className="py-6 space-y-10 px-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Votre Bibliothèque</h2>
+        <h2 className="text-2xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>Bibliothèque</h2>
         <div className="flex gap-2">
-          {/* Menu de tri rapide */}
           <select 
             value={sortBy} 
             onChange={(e) => onSortChange(e.target.value as any)}
-            className="bg-white/5 border border-white/10 text-white text-xs font-bold rounded-full px-4 outline-none hover:bg-white/10 transition-colors cursor-pointer"
+            className="bg-white border border-black/5 text-[var(--text-primary)] text-xs font-bold rounded-full px-4 outline-none shadow-sm cursor-pointer"
           >
-            <option value="date" className="bg-zinc-900">Trier: Date</option>
-            <option value="title" className="bg-zinc-900">Trier: Titre</option>
-            <option value="artist" className="bg-zinc-900">Trier: Artiste</option>
+            <option value="date">Date</option>
+            <option value="title">Titre</option>
+            <option value="artist">Artiste</option>
           </select>
 
           <button 
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-violet-600 text-white font-bold text-sm hover:scale-105 transition-transform shadow-[0_0_20px_var(--accent-glow)]"
+            className="flex items-center gap-2 px-4 py-2 rounded-full border border-black/5 bg-white text-[var(--text-primary)] font-bold text-sm shadow-sm hover:translate-y-[-2px] transition-transform"
           >
             <Upload size={18} />
             Importer
@@ -63,100 +67,74 @@ export function LibraryView({
             onChange={handleFileChange} 
             multiple 
             accept="audio/*"
-            // @ts-ignore
-            webkitdirectory="true" 
-            directory="true"
             className="hidden" 
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-          <div 
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+          {/* Liked Songs Special Card */}
+          <motion.div 
+            whileHover={{ y: -4 }}
             onClick={() => onPlaylistClick('p1')}
-            className="group bg-gradient-to-br from-violet-900 to-indigo-900 p-6 rounded-2xl cursor-pointer flex flex-col justify-end aspect-square relative overflow-hidden hover:scale-105 transition-all shadow-[0_10px_30px_rgba(143,0,255,0.15)] border border-white/5"
+            className="group bg-gradient-to-br from-[#FF4067] to-[#FF8095] p-5 rounded-[32px] cursor-pointer flex flex-col justify-end aspect-square relative overflow-hidden shadow-lg shadow-[#FF4067]/20"
           >
-            <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_60%_40%,#8F00FF,transparent)]" />
-            <div className="relative z-10 mb-2 w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
-               <Heart size={20} fill="white" className="text-white" />
+            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_60%_40%,white,transparent)]" />
+            <div className="relative z-10 mb-2 w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30">
+               <Heart size={20} fill="white" color="white" />
             </div>
-            <h4 className="text-xl font-black text-white relative z-10 tracking-tighter">TITRES LIKÉS</h4>
-            <p className="text-[10px] uppercase font-black text-white/60 relative z-10 tracking-widest">{favorites.length} morceaux</p>
-            <button className="absolute top-4 right-4 w-12 h-12 bg-white text-violet-600 rounded-full flex items-center justify-center shadow-2xl opacity-0 group-hover:opacity-100 scale-75 group-hover:scale-100 transition-all duration-300">
-              <Play size={20} fill="currentColor" className="ml-1" />
+            <h4 className="text-lg font-black text-white relative z-10 tracking-tight leading-tight">Titres Likés</h4>
+            <p className="text-[10px] font-bold text-white/70 relative z-10 tracking-widest uppercase">{favorites.length} titres</p>
+            <button className="absolute top-4 right-4 w-10 h-10 bg-white text-[var(--accent)] rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-300">
+              <Play size={18} fill="currentColor" className="ml-0.5" />
             </button>
-          </div>
+          </motion.div>
 
           {playlists.map(playlist => (
-            <div 
+            <motion.div 
               key={playlist.id} 
+              whileHover={{ y: -4 }}
               onClick={() => onPlaylistClick(playlist.id)}
-              className="group p-4 rounded-2xl transition-all cursor-pointer border border-transparent hover:border-white/5 hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] hover:scale-105 overflow-hidden" 
-              style={{ background: 'var(--bg-card)' }}
+              className="group p-3 rounded-[32px] transition-all cursor-pointer bg-white shadow-sm border border-transparent hover:border-black/5 hover:shadow-md" 
             >
-              <div className="relative aspect-square mb-4 shadow-2xl rounded-xl flex items-center justify-center overflow-hidden border border-white/5" style={{ background: 'var(--bg-card-hover)' }}>
+              <div className="relative aspect-square mb-3 rounded-[24px] flex items-center justify-center overflow-hidden bg-gray-50">
                 {playlist.tracks.length > 0 ? (
-                  <img src={playlist.tracks[0].coverUrl} alt={playlist.name} className="w-full h-full object-cover opacity-80 group-hover:scale-110 transition-transform duration-700" />
+                  <img src={playlist.tracks[0].coverUrl} alt={playlist.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                 ) : (
-                  <Music size={40} className="text-white/10" />
+                  <Music size={32} style={{ color: 'var(--text-faint)' }} />
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <button className="absolute bottom-3 right-3 w-12 h-12 bg-violet-600 text-white rounded-full flex items-center justify-center shadow-2xl opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-300 hover:scale-110">
-                  <Play size={20} fill="currentColor" className="ml-1" />
+                <button className="absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-300" style={{ background: 'var(--accent)' }}>
+                  <Play size={18} fill="white" color="white" className="ml-0.5" />
                 </button>
               </div>
-              <h4 className="font-black truncate mb-0.5 text-sm uppercase tracking-tight text-white group-hover:text-violet-400 transition-colors">{playlist.name}</h4>
-              <p className="text-[10px] font-black uppercase tracking-widest text-white/30">{playlist.tracks.length} morceaux</p>
-            </div>
-          ))}
-
-          {youtubePlaylists.map(playlist => (
-            <div 
-              key={playlist.id} 
-              onClick={() => onPlaylistClick(playlist.id, 'youtube')}
-              className="group p-4 rounded-2xl transition-all cursor-pointer border border-transparent hover:border-red-500/30 hover:shadow-[0_20px_40px_rgba(255,0,0,0.15)] hover:scale-105 overflow-hidden" 
-              style={{ background: 'var(--bg-card)' }}
-            >
-              <div className="relative aspect-square mb-4 shadow-2xl rounded-xl flex items-center justify-center overflow-hidden border border-white/5" style={{ background: 'var(--bg-card-hover)' }}>
-                {playlist.coverUrl ? (
-                  <img src={playlist.coverUrl} alt={playlist.name} className="w-full h-full object-cover opacity-80 group-hover:scale-110 transition-transform duration-700" />
-                ) : (
-                  <Music size={40} className="text-white/10" />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <button className="absolute bottom-3 right-3 w-12 h-12 bg-red-600 text-white rounded-full flex items-center justify-center shadow-2xl opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-300 hover:scale-110">
-                  <Play size={20} fill="currentColor" className="ml-1" />
-                </button>
+              <div className="px-1">
+                <h4 className="font-bold truncate text-sm leading-tight text-[var(--text-primary)]">{playlist.name}</h4>
+                <p className="text-[10px] font-semibold text-[var(--text-secondary)]">{playlist.tracks.length} titres</p>
               </div>
-              <h4 className="font-black truncate mb-0.5 text-sm uppercase tracking-tight text-white group-hover:text-red-400 transition-colors">{playlist.name}</h4>
-              <p className="text-[10px] font-black uppercase tracking-widest text-white/30">{playlist.itemCount} morceaux • YouTube</p>
-            </div>
+            </motion.div>
           ))}
       </div>
 
       {localTracks.length > 0 && (
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Musiques Locales</h3>
+            <h3 className="text-xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>Local</h3>
           </div>
-          <div className="space-y-1">
-            <div className="grid gap-4 px-4 pb-3 text-xs font-bold uppercase tracking-widest border-b border-white/5" style={{ gridTemplateColumns: '1fr 1fr 1fr auto', color: 'var(--text-faint)' }}>
-              <span>Titre</span>
-              <span><Disc size={14} className="inline mr-1" /> Album</span>
-              <span><User size={14} className="inline mr-1" /> Artiste</span>
-              <span><Clock size={14} /></span>
-            </div>
+          <div className="space-y-2">
             {filteredLocalTracks.map(track => (
               <div 
                 key={track.id} 
-                className="grid gap-4 px-4 py-2 rounded-md hover:bg-white/5 group cursor-pointer items-center" 
-                style={{ gridTemplateColumns: '1fr 1fr 1fr auto', color: 'var(--text-secondary)' }}
+                className="flex items-center gap-4 p-2 rounded-2xl hover:bg-white hover:shadow-sm border border-transparent hover:border-black/5 group cursor-pointer" 
                 onClick={() => playTrack(track, filteredLocalTracks)}
               >
-                <span className="text-sm font-medium group-hover:text-violet-400 transition-colors truncate">{track.title}</span>
-                <span className="text-sm truncate">{track.album}</span>
-                <span className="text-sm truncate">{track.artist}</span>
-                <span className="text-xs font-mono">
+                <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0">
+                  <Music size={18} style={{ color: 'var(--text-faint)' }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold truncate group-hover:text-[var(--accent)] transition-colors">{track.title}</p>
+                  <p className="text-xs truncate font-semibold" style={{ color: 'var(--text-secondary)' }}>{track.artist}</p>
+                </div>
+                <span className="text-[10px] font-mono font-bold px-3" style={{ color: 'var(--text-faint)' }}>
                   {track.duration > 0 ? formatTime(track.duration) : 'Locale'}
                 </span>
               </div>
@@ -165,20 +143,20 @@ export function LibraryView({
         </section>
       )}
 
-      <section className="rounded-xl p-6" style={{ background: 'var(--bg-card)' }}>
-        <h3 className="text-xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>Statistiques d'écoute</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          <div className="p-4 rounded-lg" style={{ background: 'var(--bg-card-hover)' }}>
-            <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-faint)' }}>Total des lectures</p>
-            <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>{totalPlays}</p>
+      <section className="bg-white rounded-[32px] p-8 border border-black/5 shadow-sm">
+        <h3 className="text-xl font-black mb-6 tracking-tight" style={{ color: 'var(--text-primary)' }}>Stats</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>Auditions</p>
+            <p className="text-4xl font-black" style={{ color: 'var(--text-primary)' }}>{totalPlays}</p>
           </div>
-          <div className="p-4 rounded-lg" style={{ background: 'var(--bg-card-hover)' }}>
-            <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-faint)' }}>Playlists créées</p>
-            <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>{playlists.length}</p>
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>Playlists</p>
+            <p className="text-4xl font-black" style={{ color: 'var(--text-primary)' }}>{playlists.length}</p>
           </div>
-          <div className="p-4 rounded-lg" style={{ background: 'var(--bg-card-hover)' }}>
-            <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-faint)' }}>Titres Likés</p>
-            <p className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>{favorites.length}</p>
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--text-faint)' }}>Likes</p>
+            <p className="text-4xl font-black" style={{ color: 'var(--text-primary)' }}>{favorites.length}</p>
           </div>
         </div>
       </section>

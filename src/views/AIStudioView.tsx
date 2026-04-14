@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Music, Image as ImageIcon, Send, Loader2, Play, Download, Trash2, Key } from 'lucide-react';
+import { Sparkles, Music, Image as ImageIcon, Send, Loader2, Play, Download, Key } from 'lucide-react';
 import { generateMusic, suggestMusicFromImage } from '../services/geminiService';
 import { Track } from '../types';
 
@@ -9,6 +9,10 @@ interface AIStudioViewProps {
   onPlayTrack: (track: Track) => void;
 }
 
+/**
+ * Studio Créatif View component.
+ * Allows users to generate music using AI prompts or get recommendations from images.
+ */
 export const AIStudioView: React.FC<AIStudioViewProps> = ({ onPlayTrack }) => {
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -20,6 +24,9 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ onPlayTrack }) => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  /**
+   * Initializes the API key state.
+   */
   React.useEffect(() => {
     // @ts-ignore
     if (window.aistudio) {
@@ -28,6 +35,9 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ onPlayTrack }) => {
     }
   }, []);
 
+  /**
+   * Opens the API key selection dialog.
+   */
   const handleSelectKey = async () => {
     // @ts-ignore
     if (window.aistudio) {
@@ -37,6 +47,9 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ onPlayTrack }) => {
     }
   };
 
+  /**
+   * Generates music based on a text prompt.
+   */
   const handleGenerateMusic = async () => {
     if (!prompt.trim()) return;
     
@@ -50,12 +63,14 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ onPlayTrack }) => {
       setGeneratedAudio(result);
     } catch (err) {
       console.error('Generation failed:', err);
-      console.error('Échec de la génération. Assurez-vous d\'avoir configuré une clé API valide.');
     } finally {
       setIsGenerating(false);
     }
   };
 
+  /**
+   * Handles image upload and calls suggestMusicFromImage.
+   */
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -79,64 +94,65 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ onPlayTrack }) => {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 space-y-8 pb-32">
-      <header className="space-y-2">
+    <div className="flex-1 overflow-y-auto p-6 space-y-10 pb-40">
+      <header className="space-y-3">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl shadow-lg shadow-violet-500/20">
+          <div className="w-12 h-12 bg-gradient-to-br from-[#FF4067] to-[#FFA0B4] rounded-2xl flex items-center justify-center shadow-lg shadow-[#FF4067]/20">
             <Sparkles className="text-white" size={24} />
           </div>
-          <h1 className="text-3xl font-black tracking-tight">AI Studio</h1>
+          <h1 className="text-3xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>Studio Créatif</h1>
         </div>
-        <p className="text-[var(--text-secondary)] max-w-2xl">
-          Générez des morceaux uniques avec Lyria ou laissez l'IA analyser vos images pour créer la playlist parfaite.
+        <p className="text-sm font-semibold max-w-xl" style={{ color: 'var(--text-secondary)' }}>
+          Composez des musiques uniques avec l'IA ou laissez l'IA analyser vos images pour suggérer la musique idéale.
         </p>
       </header>
 
       {!hasApiKey && (
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-6 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex flex-col md:flex-row items-center gap-6"
+          className="p-8 rounded-[32px] bg-white border border-black/5 shadow-sm flex flex-col md:flex-row items-center gap-6"
         >
-          <div className="p-4 bg-violet-500/20 rounded-full">
-            <Key className="text-violet-400" size={32} />
+          <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center">
+            <Key className="text-gray-400" size={32} />
           </div>
-          <div className="flex-1 text-center md:text-left">
-            <h3 className="text-lg font-bold">Clé API Requise</h3>
-            <p className="text-sm text-[var(--text-secondary)]">
-              Pour utiliser les modèles avancés comme Lyria, vous devez sélectionner votre propre clé API Google Cloud.
+          <div className="flex-1 text-center md:text-left space-y-1">
+            <h3 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>Clé API manquante</h3>
+            <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+              Configurez votre clé Google Cloud pour débloquer les fonctionnalités Lyria.
             </p>
           </div>
           <button 
             onClick={handleSelectKey}
-            className="px-6 py-3 bg-violet-500 hover:bg-violet-600 text-white rounded-xl font-bold transition-all shadow-lg shadow-violet-500/30"
+            className="px-8 py-3 bg-[var(--accent)] text-white rounded-full font-black text-sm shadow-lg shadow-[var(--accent)]/30 hover:translate-y-[-2px] transition-transform"
           >
-            Configurer la clé
+            Configurer
           </button>
         </motion.div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Section Génération de Musique */}
-        <section className="space-y-4 p-6 rounded-3xl bg-[var(--bg-card)] border border-[var(--border)]">
+        {/* Lyria Generator Case */}
+        <section className="space-y-6 p-8 rounded-[40px] bg-white border border-black/5 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
-            <Music className="text-emerald-400" size={20} />
-            <h2 className="text-xl font-bold">Générateur Lyria</h2>
+            <Music className="text-[var(--accent)]" size={22} />
+            <h2 className="text-xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>Lyria Gen</h2>
           </div>
           
           <div className="relative">
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Décrivez la musique que vous voulez (ex: Un morceau de jazz relaxant avec un piano doux et une contrebasse...)"
-              className="w-full h-32 p-4 rounded-2xl bg-[var(--input-bg)] border border-[var(--border)] focus:border-violet-500 outline-none resize-none transition-all text-sm"
+              placeholder="Décrivez l'ambiance..."
+              className="w-full h-40 p-5 rounded-[24px] bg-gray-50 border border-transparent focus:border-[var(--accent)] focus:bg-white outline-none resize-none transition-all text-sm font-semibold"
+              style={{ color: 'var(--text-primary)' }}
             />
             <button
               onClick={handleGenerateMusic}
               disabled={isGenerating || !prompt.trim()}
-              className="absolute bottom-4 right-4 p-3 bg-violet-500 hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl shadow-lg transition-all"
+              className="absolute bottom-4 right-4 h-12 w-12 bg-[var(--accent)] disabled:opacity-30 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform"
             >
-              {isGenerating ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} />}
+              {isGenerating ? <Loader2 className="animate-spin" size={20} /> : <Send size={20} className="ml-0.5" />}
             </button>
           </div>
 
@@ -146,40 +162,37 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ onPlayTrack }) => {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="space-y-4 pt-4 border-t border-[var(--border)]"
+                className="space-y-4 pt-4 border-t border-black/5"
               >
-                <div className="flex items-center justify-between p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+                <div className="flex items-center justify-between p-4 rounded-3xl bg-gray-50 border border-black/5">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 bg-emerald-500 rounded-full">
-                      <Play className="text-white" size={16} />
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm">Morceau Généré</p>
-                      <p className="text-xs text-emerald-400">Prêt à l'écoute</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <audio src={generatedAudio.url} controls className="hidden" id="ai-audio-player" />
                     <button 
                       onClick={() => {
                         const audio = document.getElementById('ai-audio-player') as HTMLAudioElement;
                         audio.play();
                       }}
-                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                      className="w-10 h-10 bg-[var(--accent)] rounded-full flex items-center justify-center shadow-md"
                     >
-                      <Play size={20} />
+                      <Play className="text-white" size={16} fill="white" />
                     </button>
+                    <div>
+                      <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Morceau Généré</p>
+                      <p className="text-[10px] font-black uppercase text-[var(--accent)]">Prêt</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <audio src={generatedAudio.url} controls className="hidden" id="ai-audio-player" />
                     <a 
                       href={generatedAudio.url} 
                       download="lyria-generation.wav"
-                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                      className="p-2 text-gray-400 hover:text-[var(--text-primary)] transition-colors"
                     >
                       <Download size={20} />
                     </a>
                   </div>
                 </div>
                 {generatedAudio.lyrics && (
-                  <div className="p-4 rounded-2xl bg-[var(--input-bg)] text-xs italic text-[var(--text-secondary)] line-clamp-4">
+                  <div className="p-5 rounded-[24px] bg-gray-50 text-xs italic font-medium leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
                     {generatedAudio.lyrics}
                   </div>
                 )}
@@ -188,54 +201,54 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ onPlayTrack }) => {
           </AnimatePresence>
         </section>
 
-        {/* Section Analyse d'Image */}
-        <section className="space-y-4 p-6 rounded-3xl bg-[var(--bg-card)] border border-[var(--border)]">
+        {/* Visual Inspiration Section */}
+        <section className="space-y-6 p-8 rounded-[40px] bg-white border border-black/5 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
-            <ImageIcon className="text-cyan-400" size={20} />
-            <h2 className="text-xl font-bold">Inspiration Visuelle</h2>
+            <ImageIcon className="text-cyan-500" size={22} />
+            <h2 className="text-xl font-black tracking-tight" style={{ color: 'var(--text-primary)' }}>Inspi Visuelle</h2>
           </div>
 
           <div 
             onClick={() => fileInputRef.current?.click()}
-            className="group relative w-full aspect-video rounded-2xl border-2 border-dashed border-[var(--border)] hover:border-cyan-500/50 flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden"
+            className="group relative w-full aspect-square rounded-[32px] border-2 border-dashed border-gray-100 hover:border-cyan-200 bg-gray-50 flex flex-col items-center justify-center cursor-pointer transition-all overflow-hidden"
           >
             {selectedImage ? (
               <>
                 <img src={selectedImage} alt="Selected" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <p className="text-white font-bold text-sm">Changer d'image</p>
+                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                  <p className="text-white font-black text-xs uppercase tracking-widest">Changer</p>
                 </div>
               </>
             ) : (
               <>
-                <ImageIcon className="text-[var(--text-faint)] mb-2" size={40} />
-                <p className="text-sm text-[var(--text-secondary)]">Cliquez pour uploader une image</p>
+                <ImageIcon className="text-gray-200 mb-2" size={48} />
+                <p className="text-xs font-bold text-gray-400">Uploader une image</p>
               </>
             )}
             <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             {isAnalyzingImage && (
-              <div className="flex items-center gap-2 text-sm text-cyan-400 animate-pulse">
+              <div className="flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest text-cyan-500 animate-pulse py-4">
                 <Loader2 className="animate-spin" size={16} />
-                Analyse de l'ambiance...
+                Analyse...
               </div>
             )}
             
-            <div className="grid grid-cols-1 gap-2">
+            <div className="space-y-2">
               {suggestedTracks.map((track) => (
                 <div 
                   key={track.id}
                   onClick={() => onPlayTrack(track)}
-                  className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors group"
+                  className="flex items-center gap-3 p-2 rounded-2xl hover:bg-gray-50 border border-transparent hover:border-black/5 cursor-pointer transition-all group"
                 >
-                  <img src={track.coverUrl} className="w-10 h-10 rounded-lg object-cover" />
+                  <img src={track.coverUrl} className="w-10 h-10 rounded-xl object-cover shadow-sm" />
                   <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm truncate">{track.title}</p>
-                    <p className="text-xs text-[var(--text-secondary)] truncate">{track.artist}</p>
+                    <p className="font-bold text-sm truncate" style={{ color: 'var(--text-primary)' }}>{track.title}</p>
+                    <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-secondary)' }}>{track.artist}</p>
                   </div>
-                  <Play className="text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity" size={16} />
+                  <Play className="text-cyan-500 opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100" size={18} fill="currentColor" />
                 </div>
               ))}
             </div>

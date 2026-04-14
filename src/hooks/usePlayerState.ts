@@ -14,6 +14,7 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   const [isPlaying, setIsPlaying]       = useState(false);
   const [isMuted, setIsMuted]           = useState(false);
   const [volume, setVolume]             = useState(0.8);
+  const playPromiseRef                  = useRef<Promise<void> | null>(null);
   const [played, setPlayed]             = useState(0);
   const [duration, setDuration]         = useState(0);
   const playedRef                       = useRef(0);
@@ -175,7 +176,8 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
       if (isLocal && audioRef.current) {
         audioRef.current.currentTime = 0;
         if (!isPlaying) {
-          audioRef.current.play().catch(() => {});
+          const p = audioRef.current.play();
+          if (p !== undefined) p.catch(() => {});
         }
       } else if (reactPlayerRef.current && typeof reactPlayerRef.current.seekTo === 'function') {
         reactPlayerRef.current.seekTo(0);
@@ -230,6 +232,10 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
     finalizePlay(track);
   }, [searchResults, activeQueue, playbackRate]);
 
+  /**
+   * Skips to the next track in the queue.
+   * @param manual If true, force skip even if repeat mode is off at the end of queue.
+   */
   const skipToNextImpl = useCallback((manual = true) => {
     const ct  = currentTrackRef.current;
     const q   = trackQueueRef.current;
@@ -340,7 +346,11 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
         
         const playPromise = audio.play();
         if (playPromise !== undefined) {
-          playPromise.catch(e => {
+          playPromiseRef.current = playPromise;
+          playPromise.then(() => {
+            playPromiseRef.current = null;
+          }).catch(e => {
+            playPromiseRef.current = null;
             if (e.name !== 'AbortError') {
               console.error("Local play error:", e);
               setIsPlaying(false);
@@ -350,7 +360,13 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
         }
       }
     } else {
-      audio.pause();
+      if (playPromiseRef.current) {
+        playPromiseRef.current.then(() => {
+          if (audio && !audio.paused) audio.pause();
+        }).catch(() => {});
+      } else if (audio && !audio.paused) {
+        audio.pause();
+      }
     }
 
     return () => { 

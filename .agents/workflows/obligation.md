@@ -1,32 +1,23 @@
----
-description: pour une meilheur rendue
----
+# Obligation Workflow
 
-commente toute les fonctions
+Description : Pour un meilleur rendu.
 
-il faut que l'application soit oppérationnel à chaque fois (la musique doit se jouer à tous les couts meme si je fait des modifications, il faut que les fonctionnalités de l'application marchent toujours pas d'execption)
+## Règles de développement
 
-#les fonctionnalités : 
-- la lecture des musiques depuis le compte youtube connecter
+1. **Documentation** : Commente toutes les fonctions du projet (JSDoc).
+2. **Disponibilité** : L'application doit être opérationnelle à chaque fois (la musique doit se jouer à tous les coups). Les fonctionnalités ne doivent jamais être cassées.
 
-- la lecture des musiques locaux du systeme d'exploitation
+## Fonctionnalités obligatoires
 
-- la transcription des lyrics
-
-- la reconnaissance des musiques
-
-- et/ou le passage de lecture de musique meme les locaux vers le clips 
-
-- propose les musiques selon les humeurs avec IA 
-
-- respecte les normes de sécurités
-
-- actualise les dossiers android et IOS pour pouvoir creer les executables
-
-- assure toi d'implementer les autorisations et les conditions d'utilisation
-
-- assure toi de verifier le bon fonctionnement de tout ça à chaque fois
-
-- lance le test pour verifier l'expérience utilisateur
-
-- actualise les documentations à chaque fois
+- Lecture des musiques depuis le compte YouTube connecté.
+- Lecture des musiques locales du système d'exploitation.
+- Transcription et affichage des paroles (lyrics).
+- Reconnaissance musicale (type Shazam).
+- Passage fluide de la lecture audio vers le clip vidéo (même pour le local).
+- Recommandations musicales basées sur l'humeur via l'IA.
+- Respect strict des normes de sécurité et de confidentialité.
+- Synchronisation systématique des dossiers Android et iOS (`npx cap sync`).
+- Implémentation des autorisations et des conditions d'utilisation (TOS).
+- Vérification rigoureuse du bon fonctionnement à chaque étape.
+- Tests réguliers de l'expérience utilisateur (UX).
+- Actualisation systématique de la documentation.
