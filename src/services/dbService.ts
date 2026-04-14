@@ -49,8 +49,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     operationType,
     path
   }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  console.warn('Firestore Permission Warning (Skipped write): ', errInfo.error);
 }
 
 interface UserData {

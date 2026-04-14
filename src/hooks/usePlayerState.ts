@@ -141,31 +141,10 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
         }
       });
     } else if (currentTrack?.youtubeId) {
-      // Robust pure audio streaming via Backend Proxy (Fixes CORS + Vercel limits)
-      fetch(`${import.meta.env.VITE_API_URL || ""}/api/piped-streams/${currentTrack.youtubeId}`)
-        .then(res => {
-          if (!res.ok) throw new Error("Backend PipedProxy request failed");
-          return res.json();
-        })
-        .then(data => {
-          if (isCancelled) return;
-          if (!data) throw new Error("No data from proxy");
-          // Chercher le flux audio de meilleure qualité
-          const audioStreams = data.audioStreams || [];
-          const bestAudio = audioStreams.sort((a: any, b: any) => b.bitrate - a.bitrate)[0];
-          
-          if (bestAudio?.url) {
-            console.log('[Player] Piped Proxy Audio URL retrieved');
-            setLocalUrl(bestAudio.url);
-          } else {
-            console.warn('[Player] No audio stream found via PipedProxy');
-            setLocalUrl(null); 
-          }
-        })
-        .catch(err => {
-          console.error('[Player] All extraction methods failed, falling back to ReactPlayer:', err);
-          if (!isCancelled) setLocalUrl(null); // This triggers ReactPlayer in App.tsx
-        });
+      // Utiliser le flux proxy backend direct avec ytdl-core plutôt que les instances publiques instables de PipedAPI
+      const proxyAudioUrl = `${import.meta.env.VITE_API_URL || ""}/api/stream?id=${currentTrack.youtubeId}`;
+      console.log('[Player] Using Direct Backend Stream Proxy:', proxyAudioUrl);
+      setLocalUrl(proxyAudioUrl);
     } else {
       setLocalUrl(null);
     }
