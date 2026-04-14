@@ -314,10 +314,9 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
     };
 
     const onError = (e: any) => {
-      console.error("Audio element error:", e);
-      setIsLoading(false);
-      setHasError(true);
-      setIsPlaying(false);
+      console.warn("Audio element error, falling back to ReactPlayer:", e);
+      // Clear localUrl so App.tsx switches to ReactPlayer with YouTube URL
+      setLocalUrl(null);
     };
 
     const onLoadedMetadata = () => {
