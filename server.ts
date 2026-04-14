@@ -105,87 +105,71 @@ app.get("/api/spotify/token", async (req, res) => {
   }
 });
 
-// YouTube Stream Proxy (Optimisé via ytdl-core)
+// YouTube Stream Proxy — via instances Invidious (fiable sur Vercel)
 app.get("/api/stream", async (req, res) => {
   const id = req.query.id as string;
   if (!id) return res.status(400).send("ID is required");
 
-  console.log(`[Stream] Streaming via ytdl-core pour: ${id}`);
-  
-  const startYtDlpFallback = () => {
-    console.log(`[Stream] Fallback vers yt-dlp pour: ${id}`);
-    const ytDlp = spawn("yt-dlp", [
-      "-f", "bestaudio",
-      "-g",
-      "--quiet",
-      "--no-playlist",
-      `https://www.youtube.com/watch?v=${id}`
-    ]);
+  res.setHeader("Access-Control-Allow-Origin", "*");
 
-    let streamUrl = "";
-    ytDlp.stdout.on("data", (data) => {
-      streamUrl += data.toString();
-    });
+  // Instances Invidious publiques robustes (rotation)
+  const invidiousInstances = [
+    "https://invidious.jing.rocks",
+    "https://vid.puffyan.us",
+    "https://inv.riverside.rocks",
+    "https://invidious.slipfox.xyz",
+    "https://y.com.sb",
+    "https://invidious.privacydev.net",
+  ];
 
-    ytDlp.on("close", (code) => {
-      if (code === 0 && streamUrl.trim()) {
-        res.redirect(streamUrl.trim());
-      } else {
-        if (!res.headersSent) res.status(500).send("Stream fallback extraction failed");
-      }
-    });
+  for (const instance of invidiousInstances) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-    ytDlp.on("error", (err) => {
-      console.error("[Stream] yt-dlp non disponible ou erreur:", err);
-      if (!res.headersSent) res.status(500).send("Stream extraction failed");
-    });
+      const response = await fetch(`${instance}/api/v1/videos/${id}?fields=adaptiveFormats,formatStreams`, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; PlayMe/1.0)" },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
 
-    req.on("close", () => {
-      ytDlp.kill();
-    });
-  };
+      if (!response.ok) continue;
 
-  try {
-    const { default: ytdl } = await import("@distube/ytdl-core");
-    const url = `https://www.youtube.com/watch?v=${id}`;
-    
-    const stream = ytdl(url, {
-      filter: "audioonly",
-      quality: "highestaudio",
-      highWaterMark: 1 << 25
-    });
-    
-    let hasError = false;
-    stream.on("error", (err) => {
-      console.error(`[ytdl-core error]`, err);
-      hasError = true;
-      if (!res.headersSent) {
-        startYtDlpFallback();
-      } else {
-        res.end();
-      }
-    });
+      const data = await response.json() as any;
 
-    stream.on("info", () => {
-      if (!hasError) {
-        res.setHeader("Content-Type", "audio/mpeg");
-        stream.pipe(res);
-      }
-    });
+      // Chercher le meilleur flux audio uniquement
+      const formats: any[] = [
+        ...(data.adaptiveFormats || []),
+        ...(data.formatStreams || []),
+      ];
 
-    req.on("close", () => {
-      if (stream.destroy) stream.destroy();
-    });
-  } catch (error) {
-    console.error("[Stream] Échec initialisation ytdl-core:", error);
-    startYtDlpFallback();
+      const audioFormats = formats.filter(f =>
+        f.type && f.type.startsWith("audio/") && f.url
+      );
+
+      if (audioFormats.length === 0) continue;
+
+      // Trier par bitrate décroissant
+      audioFormats.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0));
+      const best = audioFormats[0];
+
+      console.log(`[Stream] Invidious proxy OK (${instance}) pour: ${id}`);
+      // Rediriger vers le flux direct (le navigateur gère le streaming)
+      return res.redirect(best.url);
+    } catch (err) {
+      console.warn(`[Stream] Instance ${instance} failed:`, err);
+      continue;
+    }
   }
+
+  console.error(`[Stream] Toutes les instances Invidious ont échoué pour: ${id}`);
+  res.status(500).send("Stream extraction failed");
 });
 
-// PipedAPI Proxy avec rotation d'instances pour une fiabilité maximale
+// PipedAPI Proxy (gardé comme fallback secondaire)
 app.get("/api/piped-streams/:id", async (req, res) => {
   const { id } = req.params;
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader("Access-Control-Allow-Origin", "*");
 
   const instances = [
     "https://pipedapi.kavin.rocks",
@@ -196,21 +180,21 @@ app.get("/api/piped-streams/:id", async (req, res) => {
   for (const instance of instances) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
-      
-      const response = await fetch(`${instance}/streams/${id}`, { 
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36' },
-        signal: controller.signal
-      }).finally(() => clearTimeout(timeoutId));
-
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const response = await fetch(`${instance}/streams/${id}`, {
+        headers: { "User-Agent": "Mozilla/5.0" },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
       if (response.ok) {
         const data = await response.json();
-        if (data && data.audioStreams && data.audioStreams.length > 0) return res.json(data);
+        if (data?.audioStreams?.length > 0) return res.json(data);
       }
-    } catch (err) { /* Instance failed, next... */ }
+    } catch { continue; }
   }
   res.status(503).json({ error: "Service temporarily unavailable" });
 });
+
 
 // YouTube Search API
 app.get("/api/search/youtube", async (req, res) => {
