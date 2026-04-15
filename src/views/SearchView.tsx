@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Play, Heart, Plus, Check, Clock, Music } from 'lucide-react';
+import { Search, Play, Heart, Plus, Check, Clock, Music, Download } from 'lucide-react';
 import { Track, Playlist } from '../types';
 import { SkeletonRow } from '../components/ui/Skeleton';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,12 +16,13 @@ interface SearchViewProps {
   formatTime: (s: number) => string;
   playlists: Playlist[];
   onAddToPlaylist: (pId: string, t: Track) => void;
+  onDownload?: (t: Track) => void;
 }
 
 export function SearchView({
   searchResults, isSearching, searchQuery,
   currentTrack, favorites, playTrack, toggleFavorite, formatTime,
-  playlists, onAddToPlaylist
+  playlists, onAddToPlaylist, onDownload
 }: SearchViewProps) {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const isEmpty = !isSearching && searchResults.length === 0;
@@ -102,15 +103,25 @@ export function SearchView({
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-3 pr-2">
+                  <div className="flex items-center gap-1">
+                    {track.youtubeId && onDownload && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onDownload(track); }}
+                        className="p-2 rounded-full hover:bg-[var(--bg-app)] opacity-0 group-hover:opacity-100 transition-all"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        <Download size={18} />
+                      </button>
+                    )}
                     <button
-                      onClick={e => { e.stopPropagation(); toggleFavorite(track.id); }}
+                      onClick={(e) => { e.stopPropagation(); toggleFavorite(track.id); }}
                       className={clsx(
-                        "p-2 rounded-full transition-all",
-                        isFav ? "text-[var(--accent)]" : "text-black/10 hover:text-black/40"
+                        "p-2 rounded-full hover:bg-[var(--bg-app)] transition-all",
+                        isFav ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                       )}
+                      style={{ color: isFav ? 'var(--accent)' : 'var(--text-secondary)' }}
                     >
-                      <Heart size={18} fill={isFav ? 'currentColor' : 'none'} />
+                      <Heart size={18} fill={isFav ? "var(--accent)" : "none"} />
                     </button>
                     
                     <span className="text-[10px] font-mono font-bold hidden sm:block" style={{ color: 'var(--text-faint)' }}>

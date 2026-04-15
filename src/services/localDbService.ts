@@ -38,7 +38,26 @@ export async function getAllLocalTracks(): Promise<LocalTrack[]> {
   return await db.tracks.toArray();
 }
 
-/** Deletes a track from IndexedDB */
-export async function deleteLocalTrack(id: string) {
-  return await db.tracks.delete(id);
+/** Saves a local track with an existing Blob */
+export async function saveTrackBlob(track: Track, blob: Blob, fileName?: string) {
+  const localTrack: LocalTrack = {
+    ...track,
+    id: track.id.startsWith('local-') ? track.id : `local-${track.id}`, // Ensure local- prefix
+    fileBlob: blob,
+    fileName: fileName || `${track.title}.mp3`
+  };
+  return await db.tracks.put(localTrack);
+}
+
+/** 
+ * Downloads a track from the proxy and saves it for offline listening.
+ */
+export async function downloadAndSaveTrack(track: Track) {
+  if (!track.youtubeId) return;
+  
+  const response = await fetch(`/api/stream?id=${track.youtubeId}`);
+  if (!response.ok) throw new Error('Download failed');
+  
+  const blob = await response.blob();
+  return await saveTrackBlob(track, blob);
 }

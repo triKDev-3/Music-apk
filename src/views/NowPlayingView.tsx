@@ -4,7 +4,7 @@ import {
   SkipBack, SkipForward, Play, Pause,
   Repeat, Repeat1, Shuffle, Heart, ListMusic,
   MoreHorizontal, ChevronDown, Music2, X, Plus, ChevronLeft, ChevronRight,
-  Gauge, Timer, Share2, Loader2,
+  Gauge, Timer, Share2, Loader2, Download
 } from 'lucide-react';
 import { Track, Playlist } from '../types';
 import { Dialog } from '../components/ui/Dialog';
@@ -39,6 +39,7 @@ interface NowPlayingViewProps {
   onMinimize?: () => void;
   isLoading?: boolean;
   hasError?: boolean;
+  onDownload?: (t: Track) => void;
 }
 
 /**
@@ -165,7 +166,7 @@ export function NowPlayingView({
   playbackRate, setPlaybackRate,
   sleepTimer, setSleepTimer,
   activeQueue, playTrack, onMinimize,
-  isLoading = false,
+  isLoading = false, onDownload,
 }: NowPlayingViewProps) {
   const [showQueue, setShowQueue] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -248,6 +249,19 @@ export function NowPlayingView({
                       <Heart size={18} fill={isFav ? 'currentColor' : 'none'} />
                       {isFav ? 'Retirer des favoris' : 'Ajouter aux favoris'}
                     </button>
+                    {track.youtubeId && (
+                      <button
+                        onClick={async () => {
+                          setShowMoreMenu(false);
+                          if (onDownload) onDownload(track);
+                        }}
+                        className="flex items-center gap-3 w-full px-4 py-3 rounded-xl hover:bg-[var(--hover)] text-sm font-semibold text-left transition-colors"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
+                        <Download size={18} />
+                        Télécharger (Hors connexion)
+                      </button>
+                    )}
                     <hr style={{ borderColor: 'var(--border)' }} />
                     <button
                       className="flex items-center justify-between w-full px-4 py-3 rounded-xl hover:bg-[var(--hover)] text-sm font-semibold text-left"

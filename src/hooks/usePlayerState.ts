@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Track } from '../types';
 import { searchYouTube } from '../services/youtubeService';
 import { db } from '../services/localDbService';
+import { getClientStreamUrl } from '../services/streamingService';
 import { INITIAL_TRACKS } from '../data/initialTracks';
 
 interface UsePlayerStateOptions {
@@ -143,10 +144,22 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
       });
     } else if (currentTrack?.youtubeId) {
       if (!isClipMode) {
-        // En mode audio, on utilise le proxy backend pour une fiabilité maximale (évite les blocages d'iframe)
-        activeUrl = `/api/stream?id=${currentTrack.youtubeId}`;
-        setLocalUrl(activeUrl);
-        console.log('[Player] YouTube track — Using Backend Audio Proxy:', activeUrl);
+        // ZÉRO SERVEUR : On récupère un lien direct via nos proxies publics
+        setLoading(true);
+        getClientStreamUrl(currentTrack.youtubeId)
+          .then(url => {
+            if (!isCancelled) {
+              setLocalUrl(url);
+              setLoading(false);
+            }
+          })
+          .catch(err => {
+            if (!isCancelled) {
+               console.error('[Player] Client Stream Error:', err);
+               setHasError(true);
+               setLoading(false);
+            }
+          });
       } else {
         // En mode clip, on laisse ReactPlayer utiliser l'iframe YouTube officiel
         setLocalUrl(null);

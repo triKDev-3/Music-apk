@@ -137,36 +137,46 @@ app.get("/api/stream", async (req, res) => {
     console.warn(`[Stream] L1 Échec (${id}): ${err.message}`);
   }
 
-  // --- NIVEAU 2 : yt-dlp (Redirection de lien direct) ---
-  try {
-    console.log(`[Stream] L2: Tentative fallback yt-dlp pour: ${id}`);
-    const ytDlp = spawn("yt-dlp", ["-g", "--no-warnings", "-f", "ba/b", `https://www.youtube.com/watch?v=${id}`], { shell: true });
-    let directUrl = "";
-    let errorLog = "";
-    ytDlp.stdout.on("data", (data) => directUrl += data.toString());
-    ytDlp.stderr.on("data", (data) => errorLog += data.toString());
-    
-    ytDlp.on("error", (err) => {
-      console.error(`[Stream] L2 Erreur de lancement yt-dlp:`, err.message);
-    });
-
-    const success = await new Promise((resolve) => {
-      ytDlp.on("close", (code) => {
-        if (code === 0 && directUrl.trim()) {
-           console.log(`[Stream] L2 Succès.`);
-           res.redirect(directUrl.trim().split('\n')[0]);
-           resolve(true);
-        } else {
-           console.warn(`[Stream] L2 Échec (code ${code}): ${errorLog.slice(0, 100)}`);
-           resolve(false);
-        }
+  // --- NIVEAU 2 : yt-dlp (Uniquement en Local / Windows avec yt-dlp installé) ---
+  const isVercel = process.env.VERCEL || process.env.NODE_ENV === 'production';
+  if (!isVercel) {
+    try {
+      console.log(`[Stream] L2: Tentative fallback yt-dlp pour: ${id}`);
+      // Détection dynamique du chemin ou utilisation de la commande globale
+      const ytDlpCommand = process.platform === 'win32' 
+        ? "C:\\Users\\triK\\AppData\\Local\\Microsoft\\WinGet\\Links\\yt-dlp.exe" 
+        : "yt-dlp";
+        
+      const ytDlp = spawn(ytDlpCommand, ["-g", "--no-warnings", "-f", "ba/b", `https://www.youtube.com/watch?v=${id}`], { shell: true });
+      let directUrl = "";
+      let errorLog = "";
+      ytDlp.stdout.on("data", (data) => directUrl += data.toString());
+      ytDlp.stderr.on("data", (data) => errorLog += data.toString());
+      
+      const success = await new Promise((resolve) => {
+        ytDlp.on("error", (err) => {
+          console.error(`[Stream] L2 Erreur spawn:`, err.message);
+          resolve(false);
+        });
+        ytDlp.on("close", (code) => {
+          if (code === 0 && directUrl.trim()) {
+             console.log(`[Stream] L2 Succès.`);
+             res.redirect(directUrl.trim().split('\n')[0]);
+             resolve(true);
+          } else {
+             console.warn(`[Stream] L2 Échec (code ${code})`);
+             resolve(false);
+          }
+        });
+        setTimeout(() => { ytDlp.kill(); resolve(false); }, 15000);
       });
-      setTimeout(() => { ytDlp.kill(); resolve(false); }, 15000);
-    });
 
-    if (success) return;
-  } catch (err: any) {
-    console.warn(`[Stream] L2 Erreur système: ${err.message}`);
+      if (success) return;
+    } catch (err: any) {
+      console.warn(`[Stream] L2 Erreur système: ${err.message}`);
+    }
+  } else {
+    console.log(`[Stream] L2 sauté (Mode Vercel/Production)`);
   }
 
   // --- NIVEAU 3 : Cobalt API (Backup très performant) ---

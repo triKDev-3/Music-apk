@@ -149,27 +149,50 @@ export async function searchYouTube(query: string): Promise<Track[]> {
 }
 
 /**
- * Fallback to secondary backend API if the primary YouTube API fails.
+ * Fallback to secondary backend API or public Invidious instances if the primary YouTube API fails.
  * @param query The search query.
- * @returns Array of tracks from the backend proxy.
  */
 async function fetchFromBackend(query: string): Promise<Track[]> {
+    // 1. Try our own backend first (if available)
     try {
-        console.log(`[YouTube] Backend fallback search for: "${query}"`);
-        const res = await fetch(`${import.meta.env.VITE_API_URL || ""}/api/search/youtube?q=${encodeURIComponent(query)}`);
-
-        if (res.ok) {
-            const data = await res.json();
-            const results = Array.isArray(data) ? data : (data.items || []);
-            console.log(`[YouTube] Backend results found: ${results.length}`);
-            if (results.length > 0) return results;
+        const apiUrl = import.meta.env.VITE_API_URL || "";
+        if (apiUrl) {
+          console.log(`[YouTube] Backend fallback search for: "${query}"`);
+          const res = await fetch(`${apiUrl}/api/search/youtube?q=${encodeURIComponent(query)}`);
+          if (res.ok) {
+              const data = await res.json();
+              const results = Array.isArray(data) ? data : (data.items || []);
+              if (results.length > 0) return results;
+          }
         }
-        console.warn(`[YouTube] Backend returned status ${res.status}`);
-        return getMockResults(query);
     } catch (e) {
-        console.error('[YouTube] Backend search failed:', e);
-        return getMockResults(query);
+        console.warn('[YouTube] Backend search unavailable, trying Invidious...');
     }
+
+    // 2. ZERO SERVER FALLBACK: Try Public Invidious Search
+    const INVIDIOUS_INSTANCES = ['https://yewtu.be', 'https://inv.vern.cc', 'https://vid.priv.au'];
+    for (const instance of INVIDIOUS_INSTANCES) {
+      try {
+        console.log(`[YouTube] Invidious search fallback (${instance}) for: "${query}"`);
+        const res = await fetch(`${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video`);
+        if (!res.ok) continue;
+
+        const data = await res.json();
+        return data.map((item: any) => ({
+          id: item.videoId,
+          youtubeId: item.videoId,
+          title: item.title,
+          artist: item.author,
+          coverUrl: item.videoThumbnails?.find((t: any) => t.quality === 'high')?.url || item.videoThumbnails?.[0]?.url,
+          duration: item.lengthSeconds,
+          source: 'youtube'
+        }));
+      } catch (err) {
+        continue;
+      }
+    }
+
+    return getMockResults(query);
 }
 
 /** Résultats de secours enrichis (utilisés sans connexion ou en cas d'échec total) */

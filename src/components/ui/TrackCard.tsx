@@ -1,5 +1,4 @@
-import React from 'react';
-import { Play } from 'lucide-react';
+import { Play, Download } from 'lucide-react';
 import { Track } from '../../types';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
@@ -7,6 +6,7 @@ import clsx from 'clsx';
 interface TrackCardProps {
   track: Track;
   onPlay: () => void;
+  onDownload?: (t: Track) => void;
   isActive?: boolean;
 }
 
@@ -14,7 +14,7 @@ interface TrackCardProps {
  * TrackCard component.
  * Displays a track's cover, title, and artist, with a play button overlay.
  */
-export function TrackCard({ track, onPlay, isActive = false }: TrackCardProps) {
+export function TrackCard({ track, onPlay, onDownload, isActive = false }: TrackCardProps) {
   return (
     <motion.div
       whileHover={{ y: -4 }}
@@ -35,8 +35,16 @@ export function TrackCard({ track, onPlay, isActive = false }: TrackCardProps) {
           referrerPolicy="no-referrer"
         />
         
-        {/* Pink Play Circle Overlay (matches mockup) */}
-        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-300 scale-75 group-hover:scale-100">
+        {/* Play & Download Actions */}
+        <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 scale-75 group-hover:scale-100">
+          {track.youtubeId && onDownload && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); onDownload(track); }}
+              className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg bg-black/40 backdrop-blur-md hover:bg-black/60 transition-colors"
+            >
+              <Download size={18} color="white" />
+            </button>
+          )}
           <div 
             className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg"
             style={{ background: 'var(--accent)' }}

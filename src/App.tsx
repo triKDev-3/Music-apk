@@ -32,7 +32,7 @@ import { LegalLayout }    from './components/legal/LegalLayout';
 import { searchMusic, getMoodPlaylists } from './services/geminiService';
 import { searchYouTube, searchLiveMusic, getMyYouTubePlaylists, getYouTubePlaylistItems } from './services/youtubeService';
 import { setYouTubeOAuthToken } from './services/youtubeService';
-import { saveLocalTrack, getAllLocalTracks } from './services/localDbService';
+import { saveLocalTrack, getAllLocalTracks, downloadAndSaveTrack } from './services/localDbService';
 import { GoogleAuthProvider } from 'firebase/auth';
 import { Track, Playlist, View, Theme }  from './types';
 import { INITIAL_TRACKS } from './data/initialTracks';
@@ -407,6 +407,22 @@ export default function App() {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     performSearch(searchQuery);
+  };
+
+  const handleDownloadTrack = async (track: Track) => {
+    try {
+      setDialog({ isOpen: true, title: 'Téléchargement', message: `Téléchargement de "${track.title}" pour l'écoute hors connexion...`, type: 'info' });
+      await downloadAndSaveTrack(track);
+      
+      // Update local tracks list immediately
+      const updatedLocal = await getAllLocalTracks();
+      setLocalTracks(updatedLocal);
+      
+      setDialog({ isOpen: true, title: 'Succès', message: `"${track.title}" a été ajouté à votre bibliothèque locale !`, type: 'success' });
+    } catch (err) {
+      console.error('Download failed:', err);
+      setDialog({ isOpen: true, title: 'Erreur', message: 'Le téléchargement a échoué. Veuillez réessayer.', type: 'error' });
+    }
   };
 
   useEffect(() => {
@@ -872,6 +888,7 @@ export default function App() {
               playTrack={player.playTrack}
               isLoading={player.isLoading}
               hasError={player.hasError}
+              onDownload={handleDownloadTrack}
             />
           )}
         </AnimatePresence>
@@ -953,6 +970,7 @@ export default function App() {
                       liveTracks={liveTracks}
                       recommendations={homeRecommendations}
                       isRecommendationsLoading={isHomeLoading}
+                      onDownload={handleDownloadTrack}
                     />
                   )}
                   {currentView === 'search' && (
@@ -967,6 +985,7 @@ export default function App() {
                       formatTime={player.formatTime}
                       playlists={playlists}
                       onAddToPlaylist={addTrackToPlaylist}
+                      onDownload={handleDownloadTrack}
                     />
                   )}
                   {currentView === 'library' && (
