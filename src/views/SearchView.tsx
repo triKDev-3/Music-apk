@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { Search, Play, Heart, Plus, Check, Clock, Music } from 'lucide-react';
 import { Track, Playlist } from '../types';
 import { SkeletonRow } from '../components/ui/Skeleton';
