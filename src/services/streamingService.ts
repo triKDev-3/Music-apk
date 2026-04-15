@@ -83,25 +83,54 @@ async function getInvidiousStream(youtubeId: string): Promise<string | null> {
 }
 
 /**
+ * Tries to get a direct audio URL from Piped API
+ */
+async function getPipedStream(youtubeId: string): Promise<string | null> {
+  const PIPED_INSTANCES = ['https://pipedapi.kavin.rocks', 'https://pipedapi.rimgo.lol', 'https://piped-api.lunar.icu'];
+  const isWeb = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
+  
+  for (const instance of PIPED_INSTANCES) {
+    try {
+      const targetUrl = `${instance}/streams/${youtubeId}`;
+      const fetchUrl = isWeb ? `${CORS_PROXY}${encodeURIComponent(targetUrl)}` : targetUrl;
+      
+      const response = await fetch(fetchUrl);
+      if (!response.ok) continue;
+      
+      const data = await response.json();
+      // Piped gives direct audio streams
+      const audioStream = data.audioStreams?.find((s: any) => s.format === 'M4A' || s.format === 'WEB_M');
+      return audioStream?.url || data.audioStreams?.[0]?.url || null;
+    } catch (err) {
+      continue;
+    }
+  }
+  return null;
+}
+
+/**
  * Main function to get a playable audio URL
  */
 export async function getClientStreamUrl(youtubeId: string): Promise<string> {
   console.log(`[Streaming] Fetching client-side stream for: ${youtubeId}`);
   
-  // 1. Try Cobalt (Fastest & highest quality)
+  // 1. Try Cobalt (High quality)
   const cobaltUrl = await getCobaltStream(youtubeId);
-  if (cobaltUrl) {
-    console.log('[Streaming] Success via Cobalt');
-    return cobaltUrl;
+  if (cobaltUrl) return cobaltUrl;
+  
+  // 2. Try Piped (Very reliable for streaming)
+  const pipedUrl = await getPipedStream(youtubeId);
+  if (pipedUrl) {
+    console.log('[Streaming] Success via Piped');
+    return pipedUrl;
   }
   
-  // 2. Try Invidious (Most stable fallback)
+  // 3. Try Invidious (Stable fallback)
   const invidiousUrl = await getInvidiousStream(youtubeId);
   if (invidiousUrl) {
     console.log('[Streaming] Success via Invidious');
     return invidiousUrl;
   }
   
-  // 3. Last resort: Direct YouTube Link (Likely to fail due to CORS, but worth a try in some environments)
   throw new Error('All streaming sources exhausted. YouTube block is too strong.');
 }
