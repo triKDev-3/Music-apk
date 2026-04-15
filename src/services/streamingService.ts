@@ -13,12 +13,20 @@ const INVIDIOUS_INSTANCES = [
   'https://vid.priv.au'
 ];
 
+const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+
 /**
  * Tries to get a direct audio URL using public Cobalt API
  */
 async function getCobaltStream(youtubeId: string): Promise<string | null> {
   try {
-    const response = await fetch('https://api.cobalt.tools/api/json', {
+    const targetUrl = 'https://api.cobalt.tools/api/json';
+    const isWeb = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
+    
+    // Cobalt requires POST, which AllOrigins doesn't support well for body data.
+    // So we might have to skip Cobalt CORS proxy or use a different one.
+    // For now, let's try direct Cobalt (it usually has CORS enabled).
+    const response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
@@ -47,10 +55,14 @@ async function getCobaltStream(youtubeId: string): Promise<string | null> {
  * Tries to get a direct audio URL from Invidious instances
  */
 async function getInvidiousStream(youtubeId: string): Promise<string | null> {
+  const isWeb = typeof window !== 'undefined' && window.location.hostname !== 'localhost';
+  
   for (const instance of INVIDIOUS_INSTANCES) {
     try {
-      const url = `${instance}/api/v1/videos/${youtubeId}`;
-      const response = await fetch(url);
+      const targetUrl = `${instance}/api/v1/videos/${youtubeId}`;
+      const fetchUrl = isWeb ? `${CORS_PROXY}${encodeURIComponent(targetUrl)}` : targetUrl;
+      
+      const response = await fetch(fetchUrl);
       if (!response.ok) continue;
       
       const data = await response.json();

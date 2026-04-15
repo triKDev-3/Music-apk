@@ -145,19 +145,19 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
     } else if (currentTrack?.youtubeId) {
       if (!isClipMode) {
         // ZÉRO SERVEUR : On récupère un lien direct via nos proxies publics
-        setLoading(true);
+        setIsLoading(true);
         getClientStreamUrl(currentTrack.youtubeId)
           .then(url => {
             if (!isCancelled) {
               setLocalUrl(url);
-              setLoading(false);
+              setIsLoading(false);
             }
           })
           .catch(err => {
             if (!isCancelled) {
                console.error('[Player] Client Stream Error:', err);
                setHasError(true);
-               setLoading(false);
+               setIsLoading(false);
             }
           });
       } else {

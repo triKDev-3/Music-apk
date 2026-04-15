@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { MoreHorizontal, Play, Search, Menu, Download } from 'lucide-react';
+import { MoreHorizontal, Play, Search, Menu } from 'lucide-react';
 import { Track } from '../types';
 import { INITIAL_TRACKS } from '../data/initialTracks';
 
@@ -15,7 +15,6 @@ interface HomeViewProps {
   isRecommendationsLoading?: boolean;
   onSearchOpen?: () => void;
   onMenuOpen?: () => void;
-  onDownload?: (t: Track) => void;
 }
 
 /** Thin spinning spike visualizer around the vinyl disc */
@@ -57,7 +56,7 @@ const NEW_RELEASES = INITIAL_TRACKS.slice(3, 8);
 export const HomeView: React.FC<HomeViewProps> = ({
   currentTrack, playTrack, handleMoodClick,
   isMoodLoading, recentlyPlayed,
-  recommendations = [], onDownload
+  recommendations = [],
 }) => {
   const favorites = recentlyPlayed.slice(0, 4);
   const popular = recommendations.length > 0 ? recommendations.slice(0, 3) : POPULAR_TRACKS;
@@ -133,21 +132,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <div className="relative rounded-2xl overflow-hidden aspect-square w-full shadow-md">
                 <img src={track.coverUrl} alt={track.title} className="w-full h-full object-cover" />
                 {/* Pink play button overlay bottom-right */}
-                <div className="absolute bottom-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all">
-                  {track.youtubeId && onDownload && (
-                     <div 
-                        onClick={(e) => { e.stopPropagation(); onDownload(track); }}
-                        className="w-8 h-8 rounded-full flex items-center justify-center shadow-lg bg-black/40 backdrop-blur-md hover:bg-black/60 transition-colors cursor-pointer"
-                     >
-                        <Download size={14} color="white" />
-                     </div>
-                  )}
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center shadow-lg"
-                    style={{ background: 'var(--accent)' }}
-                  >
-                    <Play size={14} fill="white" color="white" className="ml-0.5" />
-                  </div>
+                {/* Pink play button overlay bottom-right */}
+                <div
+                  className="absolute bottom-2 right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-lg"
+                  style={{ background: 'var(--accent)' }}
+                >
+                  <Play size={14} fill="white" color="white" className="ml-0.5" />
                 </div>
                 {currentTrack?.id === track.id && (
                   <div className="absolute inset-0 bg-black/20 flex items-center justify-center">

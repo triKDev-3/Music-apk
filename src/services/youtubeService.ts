@@ -169,12 +169,21 @@ async function fetchFromBackend(query: string): Promise<Track[]> {
         console.warn('[YouTube] Backend search unavailable, trying Invidious...');
     }
 
-    // 2. ZERO SERVER FALLBACK: Try Public Invidious Search
+    // 2. ZERO SERVER FALLBACK: Try Public Invidious Search (with CORS Proxy for Web stability)
     const INVIDIOUS_INSTANCES = ['https://yewtu.be', 'https://inv.vern.cc', 'https://vid.priv.au'];
+    const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+    
     for (const instance of INVIDIOUS_INSTANCES) {
       try {
         console.log(`[YouTube] Invidious search fallback (${instance}) for: "${query}"`);
-        const res = await fetch(`${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video`);
+        const targetUrl = `${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video`;
+        
+        // On utilise un proxy CORS uniquement sur le web pour éviter les blocages Vercel
+        const fetchUrl = (typeof window !== 'undefined' && window.location.hostname !== 'localhost')
+          ? `${CORS_PROXY}${encodeURIComponent(targetUrl)}`
+          : targetUrl;
+
+        const res = await fetch(fetchUrl);
         if (!res.ok) continue;
 
         const data = await res.json();

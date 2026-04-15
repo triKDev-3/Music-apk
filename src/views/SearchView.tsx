@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { Search, Play, Heart, Plus, Check, Clock, Music, Download } from 'lucide-react';
+import { Search, Play, Heart, Plus, Check, Clock, Music } from 'lucide-react';
 import { Track, Playlist } from '../types';
 import { SkeletonRow } from '../components/ui/Skeleton';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,13 +15,12 @@ interface SearchViewProps {
   formatTime: (s: number) => string;
   playlists: Playlist[];
   onAddToPlaylist: (pId: string, t: Track) => void;
-  onDownload?: (t: Track) => void;
 }
 
 export function SearchView({
   searchResults, isSearching, searchQuery,
   currentTrack, favorites, playTrack, toggleFavorite, formatTime,
-  playlists, onAddToPlaylist, onDownload
+  playlists, onAddToPlaylist
 }: SearchViewProps) {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const isEmpty = !isSearching && searchResults.length === 0;
@@ -104,15 +102,6 @@ export function SearchView({
                   </div>
 
                   <div className="flex items-center gap-1">
-                    {track.youtubeId && onDownload && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onDownload(track); }}
-                        className="p-2 rounded-full hover:bg-[var(--bg-app)] opacity-0 group-hover:opacity-100 transition-all"
-                        style={{ color: 'var(--text-secondary)' }}
-                      >
-                        <Download size={18} />
-                      </button>
-                    )}
                     <button
                       onClick={(e) => { e.stopPropagation(); toggleFavorite(track.id); }}
                       className={clsx(
