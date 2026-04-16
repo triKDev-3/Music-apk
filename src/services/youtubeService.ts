@@ -1,4 +1,5 @@
 import { Track } from '../types';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 
 const BASE = 'https://www.googleapis.com/youtube/v3';
 
@@ -179,11 +180,18 @@ async function fetchFromBackend(query: string): Promise<Track[]> {
         const targetUrl = `${instance}/api/v1/search?q=${encodeURIComponent(query)}&type=video`;
         
         // On utilise un proxy CORS uniquement sur le web pour éviter les blocages Vercel
-        const fetchUrl = (typeof window !== 'undefined' && window.location.hostname !== 'localhost')
-          ? `${CORS_PROXY}${encodeURIComponent(targetUrl)}`
-          : targetUrl;
+        const isNative = Capacitor.isNativePlatform();
+        const isWeb = !isNative && typeof window !== 'undefined' && window.location.hostname !== 'localhost';
+        const fetchUrl = isWeb ? `${CORS_PROXY}${encodeURIComponent(targetUrl)}` : targetUrl;
 
-        const res = await fetch(fetchUrl);
+        let res;
+        if (isNative) {
+           const capRes = await CapacitorHttp.get({ url: fetchUrl });
+           res = { ok: capRes.status >= 200 && capRes.status < 300, json: async () => capRes.data };
+        } else {
+           res = await fetch(fetchUrl);
+        }
+        
         if (!res.ok) continue;
 
         const data = await res.json();

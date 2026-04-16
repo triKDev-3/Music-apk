@@ -33,7 +33,7 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
   });
   const [isClipMode, setIsClipMode]     = useState(false);
   const [isLoading, setIsLoading]       = useState(false);
-  const [hasError, setHasError]         = useState(false);
+  const [hasError, setHasError]         = useState<string | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [sleepTimer, setSleepTimer]     = useState<number | null>(null);
   const [favorites, setFavorites]       = useState<string[]>([]);
@@ -156,7 +156,7 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
           .catch(err => {
             if (!isCancelled) {
                console.error('[Player] Client Stream Error:', err);
-               setHasError(true);
+               setHasError(err instanceof Error ? err.message : String(err));
                setIsLoading(false);
             }
           });
@@ -333,6 +333,7 @@ export function usePlayerState({ searchResults, user }: UsePlayerStateOptions) {
       if (d > 0) {
         setPlayed(audio.currentTime / d);
         setDuration(d);
+        setHasError(null);
         setIsLoading(false);
       }
     };
