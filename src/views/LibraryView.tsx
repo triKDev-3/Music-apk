@@ -77,17 +77,19 @@ export function LibraryView({
           <motion.div 
             whileHover={{ y: -4 }}
             onClick={() => onPlaylistClick('p1')}
-            className="group bg-gradient-to-br from-[#FF4067] to-[#FF8095] p-5 rounded-[32px] cursor-pointer flex flex-col justify-end aspect-square relative overflow-hidden shadow-lg shadow-[#FF4067]/20"
+            className="group p-3 rounded-[32px] transition-all cursor-pointer bg-[var(--bg-card)] shadow-sm border border-transparent hover:border-[var(--border)] hover:shadow-md"
           >
-            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_60%_40%,white,transparent)]" />
-            <div className="relative z-10 mb-2 w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30">
-               <Heart size={20} fill="white" color="white" />
+            <div className="relative aspect-square mb-3 rounded-[24px] bg-gradient-to-br from-[#FF4067] to-[#FF8095] flex flex-col items-center justify-center overflow-hidden shadow-lg shadow-[#FF4067]/20">
+              <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_60%_40%,white,transparent)]" />
+              <Heart size={32} fill="white" color="white" className="relative z-10" />
+              <button className="absolute bottom-2 right-2 w-8 h-8 bg-white text-[var(--accent)] rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-300">
+                <Play size={14} fill="currentColor" className="ml-0.5" />
+              </button>
             </div>
-            <h4 className="text-lg font-black text-white relative z-10 tracking-tight leading-tight">Titres Likés</h4>
-            <p className="text-[10px] font-bold text-white/70 relative z-10 tracking-widest uppercase">{favorites.length} titres</p>
-            <button className="absolute top-4 right-4 w-10 h-10 bg-white text-[var(--accent)] rounded-full flex items-center justify-center shadow-xl opacity-0 group-hover:opacity-100 transition-all duration-300">
-              <Play size={18} fill="currentColor" className="ml-0.5" />
-            </button>
+            <div className="px-1">
+              <h4 className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>Titres Likés</h4>
+              <p className="text-[10px] truncate" style={{ color: 'var(--text-secondary)' }}>{favorites.length} titres</p>
+            </div>
           </motion.div>
 
           {playlists.map(playlist => (

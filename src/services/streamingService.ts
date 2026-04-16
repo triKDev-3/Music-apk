@@ -106,6 +106,63 @@ async function getPipedStream(youtubeId: string): Promise<string | null> {
 }
 
 /**
+ * Youtify / Vimusic approach : InnerTube API (Direct Phone to YouTube)
+ * Tries to fetch directly from YouTube mimicking an official app (IOS/TV)
+ * to bypass deciphering and get direct URLs.
+ */
+async function getInnerTubeStream(youtubeId: string): Promise<string | null> {
+  try {
+    const targetUrl = 'https://www.youtube.com/youtubei/v1/player';
+    
+    // On se fait passer pour l'appli iOS de YouTube
+    const body = {
+      context: {
+        client: {
+          clientName: "IOS",
+          clientVersion: "19.29.1",
+          deviceMake: "Apple",
+          deviceModel: "iPhone16,2",
+          osName: "iOS",
+          osVersion: "17.5.1.21F90",
+          hl: "fr",
+          gl: "FR"
+        }
+      },
+      videoId: youtubeId
+    };
+
+    const res = await universalFetch(targetUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'com.google.ios.youtube/19.29.1 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X)'
+      },
+      data: body
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.streamingData?.adaptiveFormats) {
+        // On cherche les formats audio
+        const audioFormats = data.streamingData.adaptiveFormats.filter((f: any) => 
+          f.mimeType && f.mimeType.includes('audio')
+        );
+        
+        // On tente de trouver un format qui a une URL directe (sans algorithme de signature)
+        const directFormat = audioFormats.find((f: any) => f.url);
+        if (directFormat) {
+          console.log('[Streaming] 🔥 InnerTube Direct Stream (Youtify mode) Success !');
+          return directFormat.url;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[Streaming] InnerTube Method failed:', err);
+  }
+  return null;
+}
+
+/**
  * Main Entry Point
  */
 export async function getClientStreamUrl(youtubeId: string): Promise<string> {
@@ -114,6 +171,10 @@ export async function getClientStreamUrl(youtubeId: string): Promise<string> {
   // 1. BACKEND (RENDER) - BEST
   const backendUrl = await getBackendStream(youtubeId);
   if (backendUrl) return backendUrl;
+
+  // 1.5 INNERTUBE (DIRECT APP-TO-YOUTUBE BYPASS)
+  const innerTubeUrl = await getInnerTubeStream(youtubeId);
+  if (innerTubeUrl) return innerTubeUrl;
 
   // 2. COBALT - SECOND BEST
   const cobaltUrl = await getCobaltStream(youtubeId);

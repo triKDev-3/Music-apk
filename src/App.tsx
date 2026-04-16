@@ -212,9 +212,29 @@ export default function App() {
         const savedP = localStorage.getItem('playme_playlists');
         if (savedP) setPlaylists(JSON.parse(savedP));
         setIsScanning(false);
-      });
     }
   }, [user?.uid]);
+
+  // ── Bouton Retour Matériel (Android) ──────────────────────────
+  useEffect(() => {
+    let listenerPromise: any = null;
+    if (Capacitor.isNativePlatform()) {
+      import('@capacitor/app').then(({ App: CapacitorApp }) => {
+        listenerPromise = CapacitorApp.addListener('backButton', () => {
+          if (isNowPlayingOpen) setIsNowPlayingOpen(false);
+          else if (isSidebarOpen) setIsSidebarOpen(false);
+          else if (isRecognitionOpen) setIsRecognitionOpen(false);
+          else if (selectedPlaylistId) setSelectedPlaylistId(null);
+          else if (currentView !== 'home') setCurrentView('home');
+          else CapacitorApp.exitApp();
+        });
+      }).catch(console.warn);
+    }
+    return () => {
+      if (listenerPromise) listenerPromise.then((l: any) => l?.remove());
+    };
+  }, [isNowPlayingOpen, isSidebarOpen, isRecognitionOpen, selectedPlaylistId, currentView]);
+
 
   useEffect(() => {
     // Repair durations for local tracks that are 0
