@@ -155,7 +155,7 @@ export function RecognitionModal({ isOpen, onClose, onResult }: RecognitionModal
                 <Radio size={12} className={state === 'LISTENING' ? 'text-emerald-500 animate-pulse' : 'text-violet-500'} />
                 <span className="text-[10px] uppercase font-black tracking-[0.4em] text-white/40">Discover Music</span>
              </div>
-             <h2 className="text-4xl font-black text-white tracking-tighter">Play-Me Identifie</h2>
+             <h2 className="text-4xl font-black text-white tracking-tighter">ONMusic Identifie</h2>
           </header>
 
           {/* Central Experience */}

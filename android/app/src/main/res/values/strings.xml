@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Play Me</string>
-    <string name="title_activity_main">Play Me</string>
+    <string name="app_name">ONMusic</string>
+    <string name="title_activity_main">ONMusic</string>
     <string name="package_name">com.trikdev.playme</string>
     <string name="custom_url_scheme">com.googleusercontent.apps.742584976934-0nmes6v5qfv9vfhiqgvdcoa9qls9h86i</string>
     <string name="google_client_id">742584976934-0nmes6v5qfv9vfhiqgvdcoa9qls9h86i.apps.googleusercontent.com</string>

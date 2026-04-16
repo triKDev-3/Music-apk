@@ -96,9 +96,12 @@ export function Sidebar({
             <div className="w-10 h-10 bg-[var(--accent)] rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-[var(--accent)]/20 rotate-3">
               <Play size={20} fill="white" color="white" className="ml-0.5" />
             </div>
-            <h1 className="text-2xl font-black tracking-tighter text-[var(--text-primary)]">
-              Play<span className="text-[var(--accent)]">-Me</span>
-            </h1>
+            <div className="flex flex-col">
+              <h1 className="text-2xl font-black tracking-tighter text-[var(--text-primary)]">
+                ON<span className="text-[var(--accent)]">Music</span>
+              </h1>
+              <span className="text-[9px] font-bold text-[var(--text-secondary)] leading-none mt-1">The entire music universe,<br/>finally in sync</span>
+            </div>
           </motion.div>
           {/* Close on mobile */}
           <button onClick={onClose} className="md:hidden p-2 rounded-full hover:bg-black/5 text-[var(--text-secondary)] transition-colors">

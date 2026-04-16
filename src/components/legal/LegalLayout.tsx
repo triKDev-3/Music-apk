@@ -28,7 +28,7 @@ export const LegalLayout: React.FC<LegalLayoutProps> = ({ onAccept }) => {
           </div>
           <div>
             <h1 className="text-3xl font-black tracking-tighter" style={{ color: 'var(--text-primary)' }}>
-              Bienvenue sur Play-Me
+              Bienvenue sur ONMusic
             </h1>
             <p className="text-sm font-semibold mt-1" style={{ color: 'var(--text-secondary)' }}>
               Veuillez lire et accepter nos conditions pour continuer.
@@ -50,7 +50,7 @@ export const LegalLayout: React.FC<LegalLayoutProps> = ({ onAccept }) => {
               <h2 className="text-xl font-extrabold uppercase tracking-tight text-[var(--text-primary)]">Conditions d'Utilisation</h2>
             </div>
             <p className="text-sm leading-relaxed font-medium text-[var(--text-secondary)]">
-              En utilisant Play-Me, vous acceptez que l'application puisse indexer vos fichiers musicaux locaux pour une lecture fluide et utiliser l'API YouTube pour le streaming. Vous vous engagez à ne pas utiliser l'application pour des activités illégales ou violant les droits d'auteur.
+              En utilisant ONMusic, vous acceptez que l'application puisse indexer vos fichiers musicaux locaux pour une lecture fluide et utiliser l'API YouTube pour le streaming. Vous vous engagez à ne pas utiliser l'application pour des activités illégales ou violant les droits d'auteur.
             </p>
           </section>
 
@@ -90,7 +90,7 @@ export const LegalLayout: React.FC<LegalLayoutProps> = ({ onAccept }) => {
               </div>
             </div>
             <span className="text-xs font-bold leading-relaxed text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">
-              J'ai lu et j'accepte les Conditions d'Utilisation ainsi que la Politique de Confidentialité de Play-Me.
+              J'ai lu et j'accepte les Conditions d'Utilisation ainsi que la Politique de Confidentialité de ONMusic.
             </span>
           </label>
 

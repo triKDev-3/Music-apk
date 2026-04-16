@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.trikdev.playme',
-  appName: 'Play Me',
+  appName: 'ONMusic',
   webDir: 'dist',
   android: {
     allowMixedContent: true

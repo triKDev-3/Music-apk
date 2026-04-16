@@ -22,7 +22,7 @@ L'application est construite avec une architecture moderne full-stack et cross-p
 
 - **Frontend** : React.js avec Vite, Tailwind CSS pour le style, Framer Motion pour les animations.
 - **Backend** : Serveur Express.js intégré (via `server.ts`) pour gérer les requêtes API (YouTube, Spotify, Gemini).
-- **Base de données** : 
+- **Base de données** :
   - *Cloud* : Firebase Firestore (pour les utilisateurs connectés : favoris, playlists).
   - *Local* : Dexie.js (IndexedDB) pour le stockage local et le mode hors-ligne.
 - **Authentification** : Firebase Auth (Google Sign-In) + Capacitor Google Auth pour le mobile natif.
